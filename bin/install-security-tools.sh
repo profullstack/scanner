@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# Script to install security tools for @profullstack/scanner
+# Script to install modern security tools for @profullstack/scanner
+# Replaces outdated tools like zap-cli with actively maintained alternatives
+# Tools: Nuclei, httpx-toolkit, Nikto, Nmap, SQLMap, Wapiti
 # Supports: macOS, Linux (Ubuntu/Debian, CentOS/RHEL, Arch), Windows (via WSL)
 
 # Text formatting
@@ -15,7 +17,7 @@ RESET="\033[0m"
 FORCE_REINSTALL=false
 INSTALL_ALL=true
 INSTALL_NIKTO=false
-INSTALL_ZAP=false
+INSTALL_HTTPX=false
 INSTALL_WAPITI=false
 INSTALL_NUCLEI=false
 INSTALL_SQLMAP=false
@@ -51,7 +53,7 @@ print_usage() {
   print_message "Options:" "${BLUE}"
   print_message "  --all         Install all security tools (default)" "${BLUE}"
   print_message "  --nikto       Install only Nikto" "${BLUE}"
-  print_message "  --zap         Install only OWASP ZAP CLI" "${BLUE}"
+  print_message "  --httpx       Install only httpx-toolkit" "${BLUE}"
   print_message "  --wapiti      Install only Wapiti" "${BLUE}"
   print_message "  --nuclei      Install only Nuclei" "${BLUE}"
   print_message "  --sqlmap      Install only SQLMap" "${BLUE}"
@@ -61,6 +63,7 @@ print_usage() {
   print_message "Examples:" "${BLUE}"
   print_message "  $0 --all                    # Install all tools" "${BLUE}"
   print_message "  $0 --nikto --nuclei         # Install only Nikto and Nuclei" "${BLUE}"
+  print_message "  $0 --httpx --nuclei         # Install only httpx-toolkit and Nuclei" "${BLUE}"
   print_message "  $0 --force --all            # Force reinstall all tools" "${BLUE}"
 }
 
@@ -108,10 +111,10 @@ check_tool() {
         return 0
       fi
       ;;
-    zap-cli)
-      if command_exists zap-cli; then
-        ZAP_VERSION=$(zap-cli --version 2>/dev/null || echo "ZAP CLI (version unknown)")
-        print_message "ZAP CLI is installed: ${ZAP_VERSION}" "${GREEN}"
+    httpx-toolkit)
+      if command_exists httpx-toolkit; then
+        HTTPX_VERSION=$(httpx-toolkit -version 2>/dev/null | grep "Current Version" | awk '{print $3}' || echo "httpx-toolkit (version unknown)")
+        print_message "httpx-toolkit is installed: ${HTTPX_VERSION}" "${GREEN}"
         return 0
       fi
       ;;
@@ -142,13 +145,24 @@ check_tool() {
 
 # Function to install tools on Ubuntu/Debian
 install_tools_debian() {
-  print_message "Installing security tools on Ubuntu/Debian..." "${BLUE}"
+  print_message "Installing modern security tools on Ubuntu/Debian..." "${BLUE}"
   
   # Update package list
   run_command "sudo apt-get update" "Updating package list"
   
+  # Install base requirements
+  run_command "sudo apt-get install -y curl wget nmap" "Installing base requirements"
+  
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_NIKTO" = true ]; then
     run_command "sudo apt-get install -y nikto" "Installing Nikto"
+  fi
+  
+  if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_HTTPX" = true ]; then
+    print_message "Installing httpx-toolkit..." "${BLUE}"
+    run_command "wget -O /tmp/httpx.tar.gz https://github.com/projectdiscovery/httpx/releases/latest/download/httpx_*_linux_amd64.tar.gz" "Downloading httpx-toolkit"
+    run_command "tar -xzf /tmp/httpx.tar.gz -C /tmp/" "Extracting httpx-toolkit"
+    run_command "sudo mv /tmp/httpx /usr/local/bin/httpx-toolkit" "Installing httpx-toolkit"
+    run_command "sudo chmod +x /usr/local/bin/httpx-toolkit" "Making httpx-toolkit executable"
   fi
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_WAPITI" = true ]; then
@@ -157,12 +171,6 @@ install_tools_debian() {
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_SQLMAP" = true ]; then
     run_command "sudo apt-get install -y sqlmap" "Installing SQLMap"
-  fi
-  
-  # Install Python and pip if needed for ZAP CLI
-  if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_ZAP" = true ]; then
-    run_command "sudo apt-get install -y python3 python3-pip" "Installing Python and pip for ZAP CLI"
-    run_command "pip3 install --user zapcli" "Installing ZAP CLI"
   fi
   
   # Install Go if needed for Nuclei
@@ -222,16 +230,29 @@ install_tools_centos() {
 
 # Function to install tools on Arch Linux
 install_tools_arch() {
-  print_message "Installing security tools on Arch Linux..." "${BLUE}"
+  print_message "Installing modern security tools on Arch Linux..." "${BLUE}"
+  
+  # Check if yay is available for AUR packages
+  if ! command_exists yay; then
+    print_message "yay AUR helper not found. Installing yay first..." "${YELLOW}"
+    run_command "sudo pacman -S --needed --noconfirm base-devel git" "Installing base-devel and git"
+    run_command "git clone https://aur.archlinux.org/yay.git /tmp/yay" "Cloning yay repository"
+    run_command "cd /tmp/yay && makepkg -si --noconfirm" "Building and installing yay"
+  fi
   
   # Update package database
   run_command "sudo pacman -Sy" "Updating package database"
   
   # Install base requirements
-  run_command "sudo pacman -S --needed --noconfirm python python-pipx" "Installing Python and pipx"
+  run_command "sudo pacman -S --needed --noconfirm python python-pipx nmap" "Installing base requirements"
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_NIKTO" = true ]; then
     run_command "sudo pacman -S --needed --noconfirm nikto" "Installing Nikto"
+  fi
+  
+  if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_HTTPX" = true ]; then
+    print_message "Installing httpx-toolkit from AUR..." "${BLUE}"
+    run_command "yay -S --needed --noconfirm httpx-bin" "Installing httpx-toolkit"
   fi
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_WAPITI" = true ]; then
@@ -254,34 +275,10 @@ install_tools_arch() {
     run_command "sudo pacman -S --needed --noconfirm sqlmap" "Installing SQLMap"
   fi
   
-  # Install ZAP CLI using pipx (recommended for Arch)
-  if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_ZAP" = true ]; then
-    print_message "Installing ZAP CLI using pipx (Arch recommended method)..." "${BLUE}"
-    
-    if ! run_command "pipx install zapcli" "Installing ZAP CLI via pipx"; then
-      print_message "pipx failed, trying manual virtual environment..." "${YELLOW}"
-      run_command "python -m venv ~/.local/venv/zapcli" "Creating virtual environment for ZAP CLI"
-      run_command "~/.local/venv/zapcli/bin/pip install zapcli" "Installing ZAP CLI in virtual environment"
-      
-      # Create symlink
-      mkdir -p ~/.local/bin
-      run_command "ln -sf ~/.local/venv/zapcli/bin/zap-cli ~/.local/bin/zap-cli" "Creating symlink for ZAP CLI"
-    fi
-  fi
-  
-  # Install Go if needed for Nuclei
+  # Install Nuclei from AUR (modern approach)
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_NUCLEI" = true ]; then
-    if ! check_go; then
-      run_command "sudo pacman -S --needed --noconfirm go" "Installing Go for Nuclei"
-    fi
-    run_command "go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest" "Installing Nuclei"
-    
-    # Add Go bin to PATH if not already there
-    if [[ ":$PATH:" != *":$HOME/go/bin:"* ]]; then
-      echo 'export PATH=$PATH:$HOME/go/bin' >> ~/.bashrc
-      export PATH=$PATH:$HOME/go/bin
-      print_message "Added Go bin to PATH in ~/.bashrc" "${GREEN}"
-    fi
+    print_message "Installing Nuclei and templates from AUR..." "${BLUE}"
+    run_command "yay -S --needed --noconfirm nuclei nuclei-templates" "Installing Nuclei and templates"
   fi
   
   # Ensure ~/.local/bin is in PATH for pipx and manual installs
@@ -306,7 +303,7 @@ install_tools_arch() {
 
 # Function to install tools on macOS
 install_tools_macos() {
-  print_message "Installing security tools on macOS..." "${BLUE}"
+  print_message "Installing modern security tools on macOS..." "${BLUE}"
   
   if ! command_exists brew; then
     print_message "Homebrew is not installed. Please install Homebrew first:" "${YELLOW}"
@@ -317,8 +314,18 @@ install_tools_macos() {
   
   run_command "brew update" "Updating Homebrew"
   
+  # Install base requirements
+  run_command "brew install nmap" "Installing base requirements"
+  
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_NIKTO" = true ]; then
     run_command "brew install nikto" "Installing Nikto"
+  fi
+  
+  if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_HTTPX" = true ]; then
+    print_message "Installing httpx-toolkit..." "${BLUE}"
+    run_command "brew install httpx" "Installing httpx-toolkit via Homebrew"
+    # Create alias for consistency
+    run_command "ln -sf /opt/homebrew/bin/httpx /opt/homebrew/bin/httpx-toolkit" "Creating httpx-toolkit alias"
   fi
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_WAPITI" = true ]; then
@@ -327,12 +334,6 @@ install_tools_macos() {
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_SQLMAP" = true ]; then
     run_command "brew install sqlmap" "Installing SQLMap"
-  fi
-  
-  # Install Python and pip if needed for ZAP CLI
-  if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_ZAP" = true ]; then
-    run_command "brew install python" "Installing Python for ZAP CLI"
-    run_command "pip3 install --user zapcli" "Installing ZAP CLI"
   fi
   
   # Install Go if needed for Nuclei
@@ -413,9 +414,9 @@ for arg in "$@"; do
       INSTALL_NIKTO=true
       shift
       ;;
-    --zap)
+    --httpx)
       INSTALL_ALL=false
-      INSTALL_ZAP=true
+      INSTALL_HTTPX=true
       shift
       ;;
     --wapiti)
@@ -460,10 +461,10 @@ if [ "$FORCE_REINSTALL" = false ]; then
   
   tools_to_check=()
   if [ "$INSTALL_ALL" = true ]; then
-    tools_to_check=("nikto" "zap-cli" "wapiti" "nuclei" "sqlmap")
+    tools_to_check=("nikto" "httpx-toolkit" "wapiti" "nuclei" "sqlmap")
   else
     [ "$INSTALL_NIKTO" = true ] && tools_to_check+=("nikto")
-    [ "$INSTALL_ZAP" = true ] && tools_to_check+=("zap-cli")
+    [ "$INSTALL_HTTPX" = true ] && tools_to_check+=("httpx-toolkit")
     [ "$INSTALL_WAPITI" = true ] && tools_to_check+=("wapiti")
     [ "$INSTALL_NUCLEI" = true ] && tools_to_check+=("nuclei")
     [ "$INSTALL_SQLMAP" = true ] && tools_to_check+=("sqlmap")
@@ -532,10 +533,10 @@ echo ""
 
 tools_to_verify=()
 if [ "$INSTALL_ALL" = true ]; then
-  tools_to_verify=("nikto" "zap-cli" "wapiti" "nuclei" "sqlmap")
+  tools_to_verify=("nikto" "httpx-toolkit" "wapiti" "nuclei" "sqlmap")
 else
   [ "$INSTALL_NIKTO" = true ] && tools_to_verify+=("nikto")
-  [ "$INSTALL_ZAP" = true ] && tools_to_verify+=("zap-cli")
+  [ "$INSTALL_HTTPX" = true ] && tools_to_verify+=("httpx-toolkit")
   [ "$INSTALL_WAPITI" = true ] && tools_to_verify+=("wapiti")
   [ "$INSTALL_NUCLEI" = true ] && tools_to_verify+=("nuclei")
   [ "$INSTALL_SQLMAP" = true ] && tools_to_verify+=("sqlmap")
@@ -550,15 +551,12 @@ for tool in "${tools_to_verify[@]}"; do
     
     # Show troubleshooting info
     case $tool in
-      zap-cli)
-        print_message "  Troubleshooting ZAP CLI:" "${YELLOW}"
-        print_message "  - Check if ~/.local/bin is in your PATH: echo \$PATH" "${YELLOW}"
-        print_message "  - Try: export PATH=\$PATH:\$HOME/.local/bin" "${YELLOW}"
-        print_message "  - For Arch Linux, try: pipx install zapcli" "${YELLOW}"
-        print_message "  - Manual virtual environment:" "${YELLOW}"
-        print_message "    python -m venv ~/.local/venv/zapcli" "${YELLOW}"
-        print_message "    ~/.local/venv/zapcli/bin/pip install zapcli" "${YELLOW}"
-        print_message "    ln -sf ~/.local/venv/zapcli/bin/zap-cli ~/.local/bin/zap-cli" "${YELLOW}"
+      httpx-toolkit)
+        print_message "  Troubleshooting httpx-toolkit:" "${YELLOW}"
+        print_message "  - For Arch Linux, try: yay -S httpx-bin" "${YELLOW}"
+        print_message "  - Check if /usr/bin is in your PATH: echo \$PATH" "${YELLOW}"
+        print_message "  - Try running: httpx-toolkit -version" "${YELLOW}"
+        print_message "  - Note: Binary is installed as 'httpx-toolkit' to avoid conflicts" "${YELLOW}"
         ;;
       wapiti)
         print_message "  Troubleshooting Wapiti:" "${YELLOW}"
