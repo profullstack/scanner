@@ -1,13 +1,72 @@
 {
   "name": "@profullstack/scanner",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "description": "A comprehensive CLI and Node.js module for web application security scanning with OWASP compliance, supporting multiple scanning tools and detailed vulnerability reporting",
+  "type": "module",
+  "main": "lib/index.js",
+  "files": [
+    "lib",
+    "bin",
+    "examples",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/profullstack/scanner.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "packageManager": "pnpm@10.6.5"
+  "bugs": {
+    "url": "https://github.com/profullstack/scanner/issues"
+  },
+  "homepage": "https://profullstack.com",
+  "bin": {
+    "scanner": "./bin/cli.js"
+  },
+  "scripts": {
+    "test": "node tests/run-tests.js",
+    "test:scanner": "node --test tests/scanner.test.js",
+    "test:tools": "node --test tests/tools.test.js",
+    "test:reports": "node --test tests/reports.test.js",
+    "test:config": "node --test tests/config.test.js",
+    "example": "node examples/basic-usage.js",
+    "example:api": "node examples/api-usage.js",
+    "cli": "./bin/cli.js",
+    "prepare": "husky",
+    "pre-commit": "pnpm test"
+  },
+  "keywords": [
+    "security",
+    "vulnerability",
+    "scanner",
+    "penetration-testing",
+    "owasp",
+    "web-security",
+    "security-audit",
+    "nikto",
+    "zap",
+    "nuclei",
+    "wapiti",
+    "sqlmap",
+    "cli",
+    "security-tools",
+    "vulnerability-assessment",
+    "web-app-security"
+  ],
+  "author": "Profullstack, Inc.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.6.5",
+  "dependencies": {
+    "commander": "^12.0.0",
+    "prompts": "^2.4.2",
+    "chalk": "^5.3.0",
+    "ora": "^8.0.1",
+    "table": "^6.8.1",
+    "xml2js": "^0.6.2",
+    "csv-parser": "^3.0.0"
+  },
+  "devDependencies": {
+    "husky": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }
