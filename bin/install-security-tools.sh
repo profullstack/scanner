@@ -25,6 +25,26 @@ print_message() {
   echo -e "${BOLD}${2}${1}${RESET}"
 }
 
+# Function to run command and show it
+run_command() {
+  local cmd="$1"
+  local description="$2"
+  
+  if [ -n "$description" ]; then
+    print_message "$description" "${BLUE}"
+  fi
+  
+  print_message "Running: $cmd" "${YELLOW}"
+  
+  if eval "$cmd"; then
+    print_message "✓ Command succeeded" "${GREEN}"
+    return 0
+  else
+    print_message "✗ Command failed with exit code $?" "${RED}"
+    return 1
+  fi
+}
+
 # Function to print usage information
 print_usage() {
   print_message "Usage: $0 [OPTIONS]" "${BLUE}"
@@ -125,39 +145,32 @@ install_tools_debian() {
   print_message "Installing security tools on Ubuntu/Debian..." "${BLUE}"
   
   # Update package list
-  sudo apt-get update
+  run_command "sudo apt-get update" "Updating package list"
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_NIKTO" = true ]; then
-    print_message "Installing Nikto..." "${BLUE}"
-    sudo apt-get install -y nikto
+    run_command "sudo apt-get install -y nikto" "Installing Nikto"
   fi
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_WAPITI" = true ]; then
-    print_message "Installing Wapiti..." "${BLUE}"
-    sudo apt-get install -y wapiti
+    run_command "sudo apt-get install -y wapiti" "Installing Wapiti"
   fi
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_SQLMAP" = true ]; then
-    print_message "Installing SQLMap..." "${BLUE}"
-    sudo apt-get install -y sqlmap
+    run_command "sudo apt-get install -y sqlmap" "Installing SQLMap"
   fi
   
   # Install Python and pip if needed for ZAP CLI
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_ZAP" = true ]; then
-    print_message "Installing Python and pip for ZAP CLI..." "${BLUE}"
-    sudo apt-get install -y python3 python3-pip
-    print_message "Installing ZAP CLI..." "${BLUE}"
-    pip3 install zapcli
+    run_command "sudo apt-get install -y python3 python3-pip" "Installing Python and pip for ZAP CLI"
+    run_command "pip3 install --user zapcli" "Installing ZAP CLI"
   fi
   
   # Install Go if needed for Nuclei
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_NUCLEI" = true ]; then
     if ! check_go; then
-      print_message "Installing Go for Nuclei..." "${BLUE}"
-      sudo apt-get install -y golang-go
+      run_command "sudo apt-get install -y golang-go" "Installing Go for Nuclei"
     fi
-    print_message "Installing Nuclei..." "${BLUE}"
-    go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+    run_command "go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest" "Installing Nuclei"
     
     # Add Go bin to PATH if not already there
     if [[ ":$PATH:" != *":$HOME/go/bin:"* ]]; then
@@ -172,39 +185,32 @@ install_tools_centos() {
   print_message "Installing security tools on CentOS/RHEL..." "${BLUE}"
   
   # Enable EPEL repository
-  sudo yum install -y epel-release
+  run_command "sudo yum install -y epel-release" "Enabling EPEL repository"
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_NIKTO" = true ]; then
-    print_message "Installing Nikto..." "${BLUE}"
-    sudo yum install -y nikto
+    run_command "sudo yum install -y nikto" "Installing Nikto"
   fi
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_WAPITI" = true ]; then
-    print_message "Installing Wapiti..." "${BLUE}"
-    sudo yum install -y wapiti
+    run_command "sudo yum install -y wapiti" "Installing Wapiti"
   fi
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_SQLMAP" = true ]; then
-    print_message "Installing SQLMap..." "${BLUE}"
-    sudo yum install -y sqlmap
+    run_command "sudo yum install -y sqlmap" "Installing SQLMap"
   fi
   
   # Install Python and pip if needed for ZAP CLI
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_ZAP" = true ]; then
-    print_message "Installing Python and pip for ZAP CLI..." "${BLUE}"
-    sudo yum install -y python3 python3-pip
-    print_message "Installing ZAP CLI..." "${BLUE}"
-    pip3 install zapcli
+    run_command "sudo yum install -y python3 python3-pip" "Installing Python and pip for ZAP CLI"
+    run_command "pip3 install --user zapcli" "Installing ZAP CLI"
   fi
   
   # Install Go if needed for Nuclei
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_NUCLEI" = true ]; then
     if ! check_go; then
-      print_message "Installing Go for Nuclei..." "${BLUE}"
-      sudo yum install -y golang
+      run_command "sudo yum install -y golang" "Installing Go for Nuclei"
     fi
-    print_message "Installing Nuclei..." "${BLUE}"
-    go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+    run_command "go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest" "Installing Nuclei"
     
     # Add Go bin to PATH if not already there
     if [[ ":$PATH:" != *":$HOME/go/bin:"* ]]; then
@@ -219,46 +225,83 @@ install_tools_arch() {
   print_message "Installing security tools on Arch Linux..." "${BLUE}"
   
   # Update package database
-  sudo pacman -Sy
+  run_command "sudo pacman -Sy" "Updating package database"
+  
+  # Install base requirements
+  run_command "sudo pacman -S --needed --noconfirm python python-pipx" "Installing Python and pipx"
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_NIKTO" = true ]; then
-    print_message "Installing Nikto..." "${BLUE}"
-    sudo pacman -S --needed nikto
+    run_command "sudo pacman -S --needed --noconfirm nikto" "Installing Nikto"
   fi
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_WAPITI" = true ]; then
-    print_message "Installing Wapiti..." "${BLUE}"
-    sudo pacman -S --needed wapiti
+    # Try package manager first, then pipx as fallback
+    if ! run_command "sudo pacman -S --needed --noconfirm wapiti" "Installing Wapiti from pacman"; then
+      print_message "Wapiti not available in pacman, trying pipx..." "${YELLOW}"
+      if ! run_command "pipx install wapiti3" "Installing Wapiti via pipx"; then
+        print_message "Trying manual virtual environment for Wapiti..." "${YELLOW}"
+        run_command "python -m venv ~/.local/venv/wapiti" "Creating virtual environment for Wapiti"
+        run_command "~/.local/venv/wapiti/bin/pip install wapiti3" "Installing Wapiti in virtual environment"
+        
+        # Create symlink
+        mkdir -p ~/.local/bin
+        run_command "ln -sf ~/.local/venv/wapiti/bin/wapiti ~/.local/bin/wapiti" "Creating symlink for Wapiti"
+      fi
+    fi
   fi
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_SQLMAP" = true ]; then
-    print_message "Installing SQLMap..." "${BLUE}"
-    sudo pacman -S --needed sqlmap
+    run_command "sudo pacman -S --needed --noconfirm sqlmap" "Installing SQLMap"
   fi
   
-  # Install Python and pip if needed for ZAP CLI
+  # Install ZAP CLI using pipx (recommended for Arch)
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_ZAP" = true ]; then
-    print_message "Installing Python and pip for ZAP CLI..." "${BLUE}"
-    sudo pacman -S --needed python python-pip
-    print_message "Installing ZAP CLI..." "${BLUE}"
-    pip install zapcli
+    print_message "Installing ZAP CLI using pipx (Arch recommended method)..." "${BLUE}"
+    
+    if ! run_command "pipx install zapcli" "Installing ZAP CLI via pipx"; then
+      print_message "pipx failed, trying manual virtual environment..." "${YELLOW}"
+      run_command "python -m venv ~/.local/venv/zapcli" "Creating virtual environment for ZAP CLI"
+      run_command "~/.local/venv/zapcli/bin/pip install zapcli" "Installing ZAP CLI in virtual environment"
+      
+      # Create symlink
+      mkdir -p ~/.local/bin
+      run_command "ln -sf ~/.local/venv/zapcli/bin/zap-cli ~/.local/bin/zap-cli" "Creating symlink for ZAP CLI"
+    fi
   fi
   
   # Install Go if needed for Nuclei
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_NUCLEI" = true ]; then
     if ! check_go; then
-      print_message "Installing Go for Nuclei..." "${BLUE}"
-      sudo pacman -S --needed go
+      run_command "sudo pacman -S --needed --noconfirm go" "Installing Go for Nuclei"
     fi
-    print_message "Installing Nuclei..." "${BLUE}"
-    go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+    run_command "go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest" "Installing Nuclei"
     
     # Add Go bin to PATH if not already there
     if [[ ":$PATH:" != *":$HOME/go/bin:"* ]]; then
       echo 'export PATH=$PATH:$HOME/go/bin' >> ~/.bashrc
       export PATH=$PATH:$HOME/go/bin
+      print_message "Added Go bin to PATH in ~/.bashrc" "${GREEN}"
     fi
   fi
+  
+  # Ensure ~/.local/bin is in PATH for pipx and manual installs
+  if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+    echo 'export PATH=$PATH:$HOME/.local/bin' >> ~/.bashrc
+    export PATH=$PATH:$HOME/.local/bin
+    print_message "Added ~/.local/bin to PATH in ~/.bashrc" "${GREEN}"
+  fi
+  
+  # Ensure pipx bin directory is in PATH
+  if command_exists pipx; then
+    PIPX_BIN_DIR=$(pipx environment --value PIPX_BIN_DIR 2>/dev/null || echo "$HOME/.local/bin")
+    if [[ ":$PATH:" != *":$PIPX_BIN_DIR:"* ]]; then
+      echo "export PATH=\$PATH:$PIPX_BIN_DIR" >> ~/.bashrc
+      export PATH=$PATH:$PIPX_BIN_DIR
+      print_message "Added pipx bin directory to PATH in ~/.bashrc" "${GREEN}"
+    fi
+  fi
+  
+  print_message "Note: You may need to restart your terminal or run 'source ~/.bashrc' for PATH changes to take effect." "${YELLOW}"
 }
 
 # Function to install tools on macOS
@@ -272,39 +315,32 @@ install_tools_macos() {
     exit 1
   fi
   
-  brew update
+  run_command "brew update" "Updating Homebrew"
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_NIKTO" = true ]; then
-    print_message "Installing Nikto..." "${BLUE}"
-    brew install nikto
+    run_command "brew install nikto" "Installing Nikto"
   fi
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_WAPITI" = true ]; then
-    print_message "Installing Wapiti..." "${BLUE}"
-    brew install wapiti
+    run_command "brew install wapiti" "Installing Wapiti"
   fi
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_SQLMAP" = true ]; then
-    print_message "Installing SQLMap..." "${BLUE}"
-    brew install sqlmap
+    run_command "brew install sqlmap" "Installing SQLMap"
   fi
   
   # Install Python and pip if needed for ZAP CLI
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_ZAP" = true ]; then
-    print_message "Installing Python for ZAP CLI..." "${BLUE}"
-    brew install python
-    print_message "Installing ZAP CLI..." "${BLUE}"
-    pip3 install zapcli
+    run_command "brew install python" "Installing Python for ZAP CLI"
+    run_command "pip3 install --user zapcli" "Installing ZAP CLI"
   fi
   
   # Install Go if needed for Nuclei
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_NUCLEI" = true ]; then
     if ! check_go; then
-      print_message "Installing Go for Nuclei..." "${BLUE}"
-      brew install go
+      run_command "brew install go" "Installing Go for Nuclei"
     fi
-    print_message "Installing Nuclei..." "${BLUE}"
-    go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+    run_command "go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest" "Installing Nuclei"
     
     # Add Go bin to PATH if not already there
     if [[ ":$PATH:" != *":$HOME/go/bin:"* ]]; then
@@ -511,6 +547,41 @@ for tool in "${tools_to_verify[@]}"; do
     print_message "✓ $tool is working" "${GREEN}"
   else
     print_message "✗ $tool is not working properly" "${RED}"
+    
+    # Show troubleshooting info
+    case $tool in
+      zap-cli)
+        print_message "  Troubleshooting ZAP CLI:" "${YELLOW}"
+        print_message "  - Check if ~/.local/bin is in your PATH: echo \$PATH" "${YELLOW}"
+        print_message "  - Try: export PATH=\$PATH:\$HOME/.local/bin" "${YELLOW}"
+        print_message "  - For Arch Linux, try: pipx install zapcli" "${YELLOW}"
+        print_message "  - Manual virtual environment:" "${YELLOW}"
+        print_message "    python -m venv ~/.local/venv/zapcli" "${YELLOW}"
+        print_message "    ~/.local/venv/zapcli/bin/pip install zapcli" "${YELLOW}"
+        print_message "    ln -sf ~/.local/venv/zapcli/bin/zap-cli ~/.local/bin/zap-cli" "${YELLOW}"
+        ;;
+      wapiti)
+        print_message "  Troubleshooting Wapiti:" "${YELLOW}"
+        print_message "  - For Arch Linux, try: pipx install wapiti3" "${YELLOW}"
+        print_message "  - Check if ~/.local/bin is in your PATH: echo \$PATH" "${YELLOW}"
+        print_message "  - Manual virtual environment:" "${YELLOW}"
+        print_message "    python -m venv ~/.local/venv/wapiti" "${YELLOW}"
+        print_message "    ~/.local/venv/wapiti/bin/pip install wapiti3" "${YELLOW}"
+        print_message "    ln -sf ~/.local/venv/wapiti/bin/wapiti ~/.local/bin/wapiti" "${YELLOW}"
+        ;;
+      nuclei)
+        print_message "  Troubleshooting Nuclei:" "${YELLOW}"
+        print_message "  - Check if ~/go/bin is in your PATH: echo \$PATH" "${YELLOW}"
+        print_message "  - Try: export PATH=\$PATH:\$HOME/go/bin" "${YELLOW}"
+        print_message "  - Reinstall: go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest" "${YELLOW}"
+        ;;
+    esac
+    
+    print_message "  General PATH troubleshooting:" "${YELLOW}"
+    print_message "  - Restart your terminal or run: source ~/.bashrc" "${YELLOW}"
+    print_message "  - Check current PATH: echo \$PATH" "${YELLOW}"
+    print_message "  - Manually add to PATH: export PATH=\$PATH:\$HOME/.local/bin:\$HOME/go/bin" "${YELLOW}"
+    
     all_working=false
   fi
 done
