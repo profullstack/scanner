@@ -19,50 +19,253 @@ A comprehensive CLI and Node.js module for web application security scanning wit
 
 ## 📦 Installation
 
-### Global Installation (CLI)
+Choose one of the following installation methods based on your needs:
 
+## 🚀 Method 1: Docker Compose (Recommended)
+
+The easiest way to get started is using Docker Compose, which provides a pre-configured environment with all security tools installed.
+
+### Prerequisites
+- [Docker](https://docs.docker.com/get-docker/) (version 20.10+)
+- [Docker Compose](https://docs.docker.com/compose/install/) (version 2.0+)
+
+### Quick Start with Docker Compose
+
+```bash
+# Clone the repository
+git clone https://github.com/profullstack/scanner.git
+cd scanner
+
+# Copy and customize environment variables (optional)
+cp .env.example .env
+# Edit .env file to customize configuration
+
+# Start the development environment
+docker-compose up -d scanner
+
+# Run a scan
+docker-compose exec scanner scanner scan https://example.com
+
+# View scan results
+docker-compose exec scanner scanner history
+```
+
+### Docker Compose Services
+
+#### Development Environment
+```bash
+# Start interactive development environment
+docker-compose up scanner
+
+# Run scanner commands
+docker-compose exec scanner scanner scan https://example.com
+docker-compose exec scanner scanner tools --check
+```
+
+#### Production Environment
+```bash
+# Start production-optimized environment
+docker-compose --profile production up -d scanner-prod
+
+# Run scans in production mode
+docker-compose exec scanner-prod scanner scan https://example.com --profile comprehensive
+```
+
+#### Testing Environment
+```bash
+# Run all tests
+docker-compose --profile test up scanner-test
+
+# Start vulnerable test applications for testing
+docker-compose --profile test-targets up -d dvwa webgoat
+
+# Test against vulnerable applications
+docker-compose exec scanner scanner scan http://dvwa --tools nikto,nuclei
+docker-compose exec scanner scanner scan http://webgoat:8080 --profile owasp
+```
+
+#### OWASP ZAP Integration
+```bash
+# Start ZAP with web interface
+docker-compose --profile zap up -d zap
+
+# Access ZAP GUI at http://localhost:8080
+# Use ZAP API at http://localhost:8090
+```
+
+### Docker Compose Commands Reference
+
+```bash
+# View running services
+docker-compose ps
+
+# View logs
+docker-compose logs scanner
+
+# Stop all services
+docker-compose down
+
+# Remove all data (including scan history)
+docker-compose down -v
+
+# Update to latest version
+docker-compose pull
+docker-compose up -d --force-recreate
+```
+
+### Environment Configuration
+
+The project includes a comprehensive `.env.example` file with all available configuration options. You can customize the scanner behavior by copying this file to `.env` and modifying the values:
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+
+# Edit the configuration
+nano .env  # or use your preferred editor
+```
+
+**Key Configuration Options:**
+
+- **Scanner Settings**: Default timeout, output directory, scan profiles
+- **Security Tools**: Enable/disable individual tools, configure timeouts
+- **Docker Settings**: Port mappings, network configuration
+- **Reporting**: Default formats, templates, output options
+- **Logging**: Log levels, file paths, rotation settings
+
+**Example .env customization:**
+```bash
+# Scanner configuration
+SCANNER_DEFAULT_TIMEOUT=600
+SCANNER_VERBOSE=true
+SCANNER_DEFAULT_PROFILE=comprehensive
+
+# Tool configuration
+NIKTO_ENABLED=true
+NUCLEI_SEVERITY=medium,high,critical
+ZAP_ENABLED=true
+
+# Port configuration
+ZAP_PORT=8080
+DVWA_PORT=8081
+WEBGOAT_PORT=8082
+```
+
+## 🖥️ Method 2: Host OS Installation
+
+Install directly on your host operating system for maximum performance and integration.
+
+### Step 1: Install Node.js Package
+
+#### Global Installation (CLI)
 ```bash
 npm install -g @profullstack/scanner
 ```
 
-### Local Installation (Library)
-
+#### Local Installation (Library)
 ```bash
 npm install @profullstack/scanner
 ```
 
-## 🔧 Prerequisites
+### Step 2: Install Security Tools
 
-The scanner integrates with popular security tools. Install the ones you want to use:
+#### Option A: Automated Installation Script (Recommended)
 
-### Ubuntu/Debian
+We provide a comprehensive installation script that automatically installs all security tools based on your operating system:
+
 ```bash
-# Basic tools
+# Make the script executable
+chmod +x ./bin/install-security-tools.sh
+
+# Install all security tools
+./bin/install-security-tools.sh --all
+
+# Install specific tools only
+./bin/install-security-tools.sh --nikto --nuclei
+
+# Force reinstall all tools
+./bin/install-security-tools.sh --force --all
+
+# Show help
+./bin/install-security-tools.sh --help
+```
+
+**Supported Platforms:**
+- **Linux**: Ubuntu/Debian, CentOS/RHEL/Fedora, Arch Linux
+- **macOS**: via Homebrew
+- **Windows**: via Chocolatey (WSL recommended)
+
+#### Option B: Manual Installation
+
+#### Ubuntu/Debian
+```bash
 sudo apt-get update
-sudo apt-get install nikto wapiti sqlmap
-
-# Nuclei (requires Go)
+sudo apt-get install nikto wapiti sqlmap python3-pip golang-go
+pip3 install zapcli
 go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
-
-# OWASP ZAP CLI
-pip install zapcli
 ```
 
-### macOS
+#### macOS
 ```bash
-# Using Homebrew
-brew install nikto wapiti sqlmap
-
-# Nuclei
+brew install nikto wapiti sqlmap python go
+pip3 install zapcli
 go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
-
-# OWASP ZAP CLI
-pip install zapcli
 ```
 
-### Check Tool Availability
+#### Windows
 ```bash
+choco install nikto sqlmap python golang
+pip install zapcli
+go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+```
+
+### Step 3: Verify Installation
+```bash
+# Check if all tools are properly installed
 scanner tools --check
+
+# Test with a basic scan
+scanner scan https://example.com --tools nikto
+```
+
+## 🔧 Installation Troubleshooting
+
+### Common Issues
+
+#### Permission Errors (Linux/macOS)
+```bash
+# If you get permission errors, try:
+sudo npm install -g @profullstack/scanner
+
+# Or use a Node version manager like nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+nvm install node
+npm install -g @profullstack/scanner
+```
+
+#### Tool Installation Issues
+```bash
+# Check which tools are missing
+scanner tools --check
+
+# Install missing tools individually
+./bin/install-security-tools.sh --nikto
+./bin/install-security-tools.sh --nuclei
+```
+
+#### Docker Issues
+```bash
+# If Docker services fail to start
+docker-compose down
+docker-compose pull
+docker-compose up -d
+
+# Check service logs
+docker-compose logs scanner
+
+# Reset all Docker data
+docker-compose down -v
+docker system prune -f
 ```
 
 ## 🎯 Quick Start
@@ -84,6 +287,18 @@ scanner scan https://example.com --format html
 
 # Verbose output
 scanner scan https://example.com --verbose
+
+# Authenticated scanning with basic auth
+scanner scan https://example.com --auth-user admin --auth-pass password
+
+# Form-based authentication
+scanner scan https://example.com --auth-type form --login-url https://example.com/login --login-data "username=admin&password=secret"
+
+# Using session cookie
+scanner scan https://example.com --session-cookie "JSESSIONID=ABC123; auth_token=xyz789"
+
+# Custom headers
+scanner scan https://example.com --headers '{"Authorization": "Bearer token123", "X-API-Key": "key456"}'
 ```
 
 ### Programmatic Usage
@@ -177,7 +392,93 @@ scanner clean --history
 scanner clean --all
 ```
 
-## 🔍 Scan Profiles
+## 🔐 Authentication Support
+
+The scanner supports multiple authentication methods for scanning protected web applications:
+
+### Basic Authentication
+```bash
+# HTTP Basic Authentication
+scanner scan https://example.com --auth-user username --auth-pass password --auth-type basic
+
+# HTTP Digest Authentication
+scanner scan https://example.com --auth-user username --auth-pass password --auth-type digest
+```
+
+### Form-Based Authentication
+```bash
+# Login form authentication
+scanner scan https://example.com \
+  --auth-type form \
+  --login-url https://example.com/login \
+  --login-data "username=admin&password=secret&csrf_token=abc123"
+```
+
+### Session Cookie Authentication
+```bash
+# Use existing session cookie
+scanner scan https://example.com \
+  --session-cookie "PHPSESSID=abc123; auth_token=xyz789"
+```
+
+### Custom Headers
+```bash
+# API token authentication
+scanner scan https://api.example.com \
+  --headers '{"Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}'
+
+# Multiple custom headers
+scanner scan https://example.com \
+  --headers '{"X-API-Key": "key123", "X-Client-ID": "client456"}'
+```
+
+### Programmatic Authentication
+```javascript
+import { scanTarget } from '@profullstack/scanner';
+
+// Basic authentication
+const result = await scanTarget('https://example.com', {
+  auth: {
+    type: 'basic',
+    username: 'admin',
+    password: 'password'
+  }
+});
+
+// Form-based authentication
+const result2 = await scanTarget('https://example.com', {
+  auth: {
+    type: 'form',
+    loginUrl: 'https://example.com/login',
+    loginData: 'username=admin&password=secret'
+  }
+});
+
+// Session cookie
+const result3 = await scanTarget('https://example.com', {
+  auth: {
+    sessionCookie: 'JSESSIONID=ABC123'
+  }
+});
+
+// Custom headers
+const result4 = await scanTarget('https://example.com', {
+  headers: {
+    'Authorization': 'Bearer token123',
+    'X-API-Key': 'key456'
+  }
+});
+```
+
+### Authentication Best Practices
+
+- **Secure Credentials**: Never hardcode credentials in scripts. Use environment variables or secure credential stores
+- **Session Management**: For long-running scans, ensure session cookies remain valid throughout the scan duration
+- **Rate Limiting**: Authenticated scans may have different rate limits than anonymous scans
+- **Scope Testing**: Verify that authenticated scans cover the intended scope and don't access unauthorized areas
+- **Credential Rotation**: Use dedicated test credentials that can be rotated regularly
+
+## � Scan Profiles
 
 ### Quick Scan
 - **Tools**: Nikto, Nuclei

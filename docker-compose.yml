@@ -1,0 +1,125 @@
+version: '3.8'
+
+services:
+  # Main scanner service
+  scanner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: profullstack-scanner
+    volumes:
+      # Mount source code for development
+      - .:/app
+      - /app/node_modules
+      # Persistent storage for scan results
+      - scanner-data:/home/scanner/.config/scanner
+      # Mount host directory for easy access to reports
+      - ./reports:/app/reports
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - SCANNER_OUTPUT_DIR=${SCANNER_OUTPUT_DIR:-/app/reports}
+      - SCANNER_DEFAULT_TIMEOUT=${SCANNER_DEFAULT_TIMEOUT:-300}
+      - SCANNER_VERBOSE=${SCANNER_VERBOSE:-false}
+    networks:
+      - scanner-network
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+    
+  # Production scanner service
+  scanner-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: profullstack-scanner-prod
+    volumes:
+      # Persistent storage for scan results
+      - scanner-data:/home/scanner/.config/scanner
+      # Mount host directory for reports
+      - ./reports:/app/reports
+    environment:
+      - NODE_ENV=production
+      - SCANNER_OUTPUT_DIR=${SCANNER_OUTPUT_DIR:-/app/reports}
+      - SCANNER_DEFAULT_TIMEOUT=${SCANNER_DEFAULT_TIMEOUT:-300}
+      - SCANNER_VERBOSE=${SCANNER_VERBOSE:-false}
+    networks:
+      - scanner-network
+    profiles:
+      - production
+    
+  # Test runner service
+  scanner-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: profullstack-scanner-test
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=test
+    networks:
+      - scanner-network
+    command: pnpm test
+    profiles:
+      - test
+
+  # OWASP ZAP service (optional - for advanced scanning)
+  zap:
+    image: owasp/zap2docker-stable
+    container_name: profullstack-zap
+    ports:
+      - "${ZAP_PORT:-8080}:8080"
+      - "${ZAP_API_PORT:-8090}:8090"
+    volumes:
+      - zap-data:/zap/wrk
+    environment:
+      - ZAP_PORT=${ZAP_PORT:-8080}
+    networks:
+      - scanner-network
+    profiles:
+      - zap
+    command: zap-webswing.sh
+
+  # Vulnerable test application (for testing)
+  dvwa:
+    image: vulnerables/web-dvwa
+    container_name: profullstack-dvwa
+    ports:
+      - "${DVWA_PORT:-8081}:80"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DVWA_MYSQL_ROOT_PASSWORD:-password}
+      - MYSQL_DATABASE=${DVWA_MYSQL_DATABASE:-dvwa}
+      - MYSQL_USER=${DVWA_MYSQL_USER:-dvwa}
+      - MYSQL_PASSWORD=${DVWA_MYSQL_PASSWORD:-password}
+    networks:
+      - scanner-network
+    profiles:
+      - test-targets
+
+  # WebGoat (another test target)
+  webgoat:
+    image: webgoat/webgoat-8.0
+    container_name: profullstack-webgoat
+    ports:
+      - "${WEBGOAT_PORT:-8082}:8080"
+    networks:
+      - scanner-network
+    profiles:
+      - test-targets
+
+volumes:
+  scanner-data:
+    driver: local
+  zap-data:
+    driver: local
+
+networks:
+  scanner-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${DOCKER_NETWORK_SUBNET:-172.20.0.0/16}

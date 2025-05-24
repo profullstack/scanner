@@ -46,6 +46,13 @@ program
   .option('--timeout <seconds>', 'Timeout for each tool in seconds', '300')
   .option('--verbose', 'Enable verbose output')
   .option('--no-report', 'Skip report generation')
+  .option('--auth-user <username>', 'Username for HTTP authentication')
+  .option('--auth-pass <password>', 'Password for HTTP authentication')
+  .option('--auth-type <type>', 'Authentication type (basic,digest,form)', 'basic')
+  .option('--login-url <url>', 'Login URL for form-based authentication')
+  .option('--login-data <data>', 'Login form data (e.g., "username=admin&password=secret")')
+  .option('--session-cookie <cookie>', 'Session cookie for authenticated scanning')
+  .option('--headers <headers>', 'Custom HTTP headers (JSON format)')
   .action(async (target, options) => {
     try {
       // Validate target
@@ -133,13 +140,47 @@ program
 
       console.log(chalk.green(`✅ Using tools: ${availableTools.join(', ')}`));
 
+      // Prepare authentication options
+      const authOptions = {};
+      if (options.authUser && options.authPass) {
+        authOptions.type = options.authType || 'basic';
+        authOptions.username = options.authUser;
+        authOptions.password = options.authPass;
+        
+        if (options.authType === 'form') {
+          authOptions.loginUrl = options.loginUrl;
+          authOptions.loginData = options.loginData;
+        }
+        
+        console.log(chalk.cyan(`🔐 Using ${authOptions.type} authentication for user: ${authOptions.username}`));
+      }
+      
+      if (options.sessionCookie) {
+        authOptions.sessionCookie = options.sessionCookie;
+        console.log(chalk.cyan('🍪 Using session cookie for authentication'));
+      }
+      
+      // Parse custom headers
+      let customHeaders = {};
+      if (options.headers) {
+        try {
+          customHeaders = JSON.parse(options.headers);
+          console.log(chalk.cyan(`📋 Using custom headers: ${Object.keys(customHeaders).join(', ')}`));
+        } catch (error) {
+          console.error(chalk.red(`❌ Invalid headers JSON: ${error.message}`));
+          process.exit(1);
+        }
+      }
+
       // Prepare scan options
       const scanOptions = {
         tools: availableTools,
         outputDir: options.output,
         timeout: parseInt(options.timeout),
         verbose: options.verbose,
-        toolOptions: toolOptions
+        toolOptions: toolOptions,
+        auth: Object.keys(authOptions).length > 0 ? authOptions : null,
+        headers: customHeaders
       };
 
       // Start scan
