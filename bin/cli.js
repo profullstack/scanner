@@ -205,14 +205,23 @@ program
       };
 
       // Start scan
-      const scanSpinner = createSpinner(`Scanning ${target}...`);
-      scanSpinner.start();
+      let scanSpinner = null;
+      if (!options.verbose) {
+        scanSpinner = createSpinner(`Scanning ${target}...`);
+        scanSpinner.start();
+      } else {
+        console.log(chalk.blue(`🚀 Starting scan of ${target}...`));
+      }
 
       const startTime = Date.now();
       const result = await scanTarget(target, scanOptions);
       const duration = Math.round((Date.now() - startTime) / 1000);
 
-      scanSpinner.succeed(chalk.green(`Scan completed in ${formatDuration(duration)}`));
+      if (scanSpinner) {
+        scanSpinner.succeed(chalk.green(`Scan completed in ${formatDuration(duration)}`));
+      } else {
+        console.log(chalk.green(`\n✅ Scan completed in ${formatDuration(duration)}`));
+      }
 
       // Display results
       displayVulnerabilitySummary(result.summary);
