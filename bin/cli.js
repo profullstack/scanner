@@ -8,9 +8,11 @@ import { scanTarget, getScanHistory, getAllScans, getScanStats, getScanById, del
 import { checkToolAvailability, getInstallationInstructions } from '../lib/tools.js';
 import { generateReport, exportReport, getReportFormats } from '../lib/reports.js';
 import { validateTarget, formatDuration, getSeverityEmoji, getSeverityColor } from '../lib/utils.js';
-import { 
+import {
   getConfig, updateConfig, resetConfig, getEnabledTools, setToolEnabled,
-  getScanProfiles, applyScanProfile, getConfigFilePath, exportConfig, importConfig
+  getScanProfiles, applyScanProfile, getConfigFilePath, exportConfig, importConfig,
+  addProject, removeProject, getProjects, getProject, updateProject,
+  getProjectHistory, getAllHistory, clearProjectHistory, getProjectStats
 } from '../lib/config.js';
 
 const program = new Command();
@@ -43,6 +45,7 @@ program
   .option('-o, --output <dir>', 'Output directory for scan results')
   .option('-f, --format <format>', 'Report format (json,html,csv,xml,markdown,text)', 'json')
   .option('-p, --profile <profile>', 'Use predefined scan profile (quick,standard,comprehensive,owasp)')
+  .option('--project <project>', 'Project ID or name to associate scan with')
   .option('--timeout <seconds>', 'Timeout for each tool in seconds', '300')
   .option('--verbose', 'Enable verbose output')
   .option('--no-report', 'Skip report generation')
@@ -64,6 +67,17 @@ program
 
       console.log(chalk.blue('🛡️  Security Scanner'));
       console.log(chalk.gray(`Target: ${target}`));
+
+      // Validate project if specified
+      let project = null;
+      if (options.project) {
+        project = getProject(options.project);
+        if (!project) {
+          console.error(chalk.red(`❌ Project not found: ${options.project}`));
+          process.exit(1);
+        }
+        console.log(chalk.cyan(`📁 Project: ${project.name}`));
+      }
 
       // Determine tools to use
       let tools = [];
@@ -180,7 +194,9 @@ program
         verbose: options.verbose,
         toolOptions: toolOptions,
         auth: Object.keys(authOptions).length > 0 ? authOptions : null,
-        headers: customHeaders
+        headers: customHeaders,
+        projectId: project?.id || null,
+        scanProfile: options.profile || null
       };
 
       // Start scan
@@ -681,6 +697,291 @@ program
 
     } catch (error) {
       console.error(chalk.red(`❌ Delete error: ${error.message}`));
+      process.exit(1);
+    }
+  });
+
+// Project management
+program
+  .command('projects')
+  .description('Manage scanning projects')
+  .option('--add', 'Add a new project')
+  .option('--remove <project>', 'Remove a project by ID or name')
+  .option('--list', 'List all projects')
+  .option('--show <project>', 'Show project details')
+  .option('--history <project>', 'Show project scan history')
+  .option('--stats [project]', 'Show project statistics (or global if no project specified)')
+  .option('--clear-history [project]', 'Clear project history (or all history if no project specified)')
+  .option('--name <name>', 'Project name (for --add)')
+  .option('--domain <domain>', 'Project domain (for --add)')
+  .option('--url <url>', 'Project URL (for --add)')
+  .option('--description <description>', 'Project description (for --add)')
+  .action(async (options) => {
+    try {
+      if (options.add) {
+        if (!options.name) {
+          console.error(chalk.red('❌ Project name is required (use --name)'));
+          process.exit(1);
+        }
+        
+        if (!options.domain && !options.url) {
+          console.error(chalk.red('❌ Either --domain or --url is required'));
+          process.exit(1);
+        }
+        
+        const projectData = {
+          name: options.name,
+          domain: options.domain,
+          url: options.url,
+          description: options.description
+        };
+        
+        const project = addProject(projectData);
+        console.log(chalk.green(`✅ Project created: ${project.name}`));
+        console.log(chalk.gray(`   ID: ${project.id}`));
+        console.log(chalk.gray(`   Domain: ${project.domain || 'N/A'}`));
+        console.log(chalk.gray(`   URL: ${project.url || 'N/A'}`));
+        if (project.description) {
+          console.log(chalk.gray(`   Description: ${project.description}`));
+        }
+        return;
+      }
+      
+      if (options.remove) {
+        const project = getProject(options.remove);
+        if (!project) {
+          console.error(chalk.red(`❌ Project not found: ${options.remove}`));
+          process.exit(1);
+        }
+        
+        const { confirm } = await prompts({
+          type: 'confirm',
+          name: 'confirm',
+          message: `Remove project "${project.name}" and all its scan history?`,
+          initial: false
+        });
+        
+        if (confirm) {
+          const removed = removeProject(options.remove);
+          if (removed) {
+            console.log(chalk.green(`✅ Project removed: ${project.name}`));
+          } else {
+            console.error(chalk.red('❌ Failed to remove project'));
+          }
+        } else {
+          console.log(chalk.yellow('Remove cancelled'));
+        }
+        return;
+      }
+      
+      if (options.list) {
+        const projects = getProjects();
+        
+        if (projects.length === 0) {
+          console.log(chalk.yellow('No projects found.'));
+          console.log(chalk.cyan('\n💡 Add a project with: scanner projects --add --name "My Project" --domain "example.com"'));
+          return;
+        }
+        
+        console.log(chalk.blue('📁 Projects\n'));
+        
+        projects.forEach((project, index) => {
+          console.log(`${chalk.bold(project.name)}`);
+          console.log(chalk.gray(`   ID: ${project.id}`));
+          console.log(chalk.gray(`   Domain: ${project.domain || 'N/A'}`));
+          console.log(chalk.gray(`   URL: ${project.url || 'N/A'}`));
+          console.log(chalk.gray(`   Scans: ${project.scanCount}`));
+          console.log(chalk.gray(`   Created: ${new Date(project.createdAt).toLocaleString()}`));
+          if (project.lastScanAt) {
+            console.log(chalk.gray(`   Last Scan: ${new Date(project.lastScanAt).toLocaleString()}`));
+          }
+          if (project.description) {
+            console.log(chalk.gray(`   Description: ${project.description}`));
+          }
+          
+          if (index < projects.length - 1) {
+            console.log();
+          }
+        });
+        return;
+      }
+      
+      if (options.show) {
+        const project = getProject(options.show);
+        if (!project) {
+          console.error(chalk.red(`❌ Project not found: ${options.show}`));
+          process.exit(1);
+        }
+        
+        console.log(chalk.blue('📁 Project Details\n'));
+        console.log(chalk.bold(`Name: ${project.name}`));
+        console.log(`ID: ${chalk.gray(project.id)}`);
+        console.log(`Domain: ${chalk.cyan(project.domain || 'N/A')}`);
+        console.log(`URL: ${chalk.cyan(project.url || 'N/A')}`);
+        console.log(`Scan Count: ${chalk.yellow(project.scanCount)}`);
+        console.log(`Created: ${chalk.gray(new Date(project.createdAt).toLocaleString())}`);
+        console.log(`Updated: ${chalk.gray(new Date(project.updatedAt).toLocaleString())}`);
+        if (project.lastScanAt) {
+          console.log(`Last Scan: ${chalk.gray(new Date(project.lastScanAt).toLocaleString())}`);
+        }
+        if (project.description) {
+          console.log(`Description: ${chalk.gray(project.description)}`);
+        }
+        
+        // Show recent scans
+        const recentScans = getProjectHistory(project.id, 5);
+        if (recentScans.length > 0) {
+          console.log(chalk.bold('\n📋 Recent Scans:'));
+          recentScans.forEach(scan => {
+            const status = scan.status === 'completed' ? chalk.green('✅') :
+                          scan.status === 'failed' ? chalk.red('❌') :
+                          chalk.yellow('⏳');
+            console.log(`${status} ${chalk.gray(new Date(scan.startTime).toLocaleString())} - ${scan.summary?.total || 0} vulnerabilities`);
+          });
+        }
+        return;
+      }
+      
+      if (options.history) {
+        const project = getProject(options.history);
+        if (!project) {
+          console.error(chalk.red(`❌ Project not found: ${options.history}`));
+          process.exit(1);
+        }
+        
+        const history = getProjectHistory(project.id);
+        
+        if (history.length === 0) {
+          console.log(chalk.yellow(`No scan history found for project: ${project.name}`));
+          return;
+        }
+        
+        console.log(chalk.blue(`📋 Scan History for ${project.name}\n`));
+        
+        history.forEach((scan, index) => {
+          const status = scan.status === 'completed' ? chalk.green('✅') :
+                        scan.status === 'failed' ? chalk.red('❌') :
+                        chalk.yellow('⏳');
+          
+          console.log(`${status} ${chalk.bold(scan.target)}`);
+          console.log(chalk.gray(`   Scan ID: ${scan.scanId}`));
+          console.log(chalk.gray(`   Date: ${new Date(scan.startTime).toLocaleString()}`));
+          console.log(chalk.gray(`   Duration: ${formatDuration(scan.duration || 0)}`));
+          console.log(chalk.gray(`   Tools: ${scan.tools.join(', ')}`));
+          console.log(chalk.gray(`   Vulnerabilities: ${scan.summary?.total || 0}`));
+          
+          if (index < history.length - 1) {
+            console.log();
+          }
+        });
+        return;
+      }
+      
+      if (options.stats !== undefined) {
+        const projectId = options.stats || null;
+        let project = null;
+        
+        if (projectId) {
+          project = getProject(projectId);
+          if (!project) {
+            console.error(chalk.red(`❌ Project not found: ${projectId}`));
+            process.exit(1);
+          }
+        }
+        
+        const stats = getProjectStats(projectId);
+        
+        console.log(chalk.blue(project ? `📊 Statistics for ${project.name}` : '📊 Global Statistics'));
+        console.log();
+        
+        console.log(chalk.bold('Overview:'));
+        console.log(`Total Scans: ${chalk.cyan(stats.totalScans)}`);
+        console.log(`Completed: ${chalk.green(stats.completedScans)}`);
+        console.log(`Failed: ${chalk.red(stats.failedScans)}`);
+        console.log(`Average Duration: ${chalk.yellow(formatDuration(stats.averageScanTime))}`);
+        
+        console.log(chalk.bold('\nVulnerabilities:'));
+        console.log(`Total Found: ${chalk.cyan(stats.totalVulnerabilities)}`);
+        displayVulnerabilitySummary(stats.severityBreakdown);
+        
+        if (Object.keys(stats.toolUsage).length > 0) {
+          console.log(chalk.bold('\nTool Usage:'));
+          Object.entries(stats.toolUsage)
+            .sort(([,a], [,b]) => b - a)
+            .forEach(([tool, count]) => {
+              console.log(`${chalk.cyan(tool)}: ${count} times`);
+            });
+        }
+        
+        if (Object.keys(stats.scansByMonth).length > 0) {
+          console.log(chalk.bold('\nScans by Month:'));
+          Object.entries(stats.scansByMonth)
+            .sort(([a], [b]) => b.localeCompare(a))
+            .slice(0, 6)
+            .forEach(([month, count]) => {
+              console.log(`${chalk.cyan(month)}: ${count} scans`);
+            });
+        }
+        return;
+      }
+      
+      if (options.clearHistory !== undefined) {
+        const projectId = options.clearHistory || null;
+        let project = null;
+        
+        if (projectId) {
+          project = getProject(projectId);
+          if (!project) {
+            console.error(chalk.red(`❌ Project not found: ${projectId}`));
+            process.exit(1);
+          }
+        }
+        
+        const { confirm } = await prompts({
+          type: 'confirm',
+          name: 'confirm',
+          message: project ?
+            `Clear scan history for project "${project.name}"?` :
+            'Clear ALL scan history for ALL projects?',
+          initial: false
+        });
+        
+        if (confirm) {
+          clearProjectHistory(projectId);
+          console.log(chalk.green(project ?
+            `✅ Scan history cleared for project: ${project.name}` :
+            '✅ All scan history cleared'
+          ));
+        } else {
+          console.log(chalk.yellow('Clear cancelled'));
+        }
+        return;
+      }
+      
+      // Default: show help
+      console.log(chalk.blue('📁 Project Management\n'));
+      console.log('Available commands:');
+      console.log('  --add                    Add a new project (requires --name and --domain or --url)');
+      console.log('  --remove <project>       Remove a project by ID or name');
+      console.log('  --list                   List all projects');
+      console.log('  --show <project>         Show project details');
+      console.log('  --history <project>      Show project scan history');
+      console.log('  --stats [project]        Show statistics (project or global)');
+      console.log('  --clear-history [project] Clear scan history');
+      console.log('\nProject creation options:');
+      console.log('  --name <name>            Project name (required)');
+      console.log('  --domain <domain>        Project domain');
+      console.log('  --url <url>              Project URL');
+      console.log('  --description <desc>     Project description');
+      console.log('\nExamples:');
+      console.log('  scanner projects --add --name "My Website" --domain "example.com"');
+      console.log('  scanner projects --add --name "API Server" --url "https://api.example.com"');
+      console.log('  scanner projects --list');
+      console.log('  scanner projects --show "My Website"');
+      console.log('  scanner projects --history "My Website"');
+      
+    } catch (error) {
+      console.error(chalk.red(`❌ Project management error: ${error.message}`));
       process.exit(1);
     }
   });
