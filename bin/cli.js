@@ -40,7 +40,12 @@ function displayVulnerabilitySummary(summary) {
 // Main scan command
 program
   .command('scan <target>')
-  .description('Scan a target URL or IP address for security vulnerabilities')
+  .description('Scan a target URL or IP address for security vulnerabilities\n' +
+               '  <target> can be:\n' +
+               '    - Full URL: https://example.com\n' +
+               '    - Domain: example.com\n' +
+               '    - IP address: 192.168.1.1\n' +
+               '    - URL with path: https://example.com/app')
   .option('-t, --tools <tools>', 'Comma-separated list of tools to use (nikto,zap,wapiti,nuclei,sqlmap)', '')
   .option('-o, --output <dir>', 'Output directory for scan results')
   .option('-f, --format <format>', 'Report format (json,html,csv,xml,markdown,text)', 'json')

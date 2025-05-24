@@ -10,12 +10,14 @@ A comprehensive CLI and Node.js module for web application security scanning wit
 
 - **Multiple Security Tools Integration**: Nikto, OWASP ZAP, Wapiti, Nuclei, SQLMap
 - **OWASP Top 10 Compliance**: Comprehensive coverage of OWASP vulnerabilities
+- **Project Management**: Organize scans by project with comprehensive history tracking
 - **Multiple Report Formats**: JSON, HTML, CSV, XML, Markdown, Text
 - **Flexible Scanning Profiles**: Quick, Standard, Comprehensive, OWASP-focused
 - **CLI and Programmatic API**: Use as command-line tool or Node.js library
 - **Vulnerability Management**: Track, analyze, and export scan results
 - **Configurable Tool Settings**: Customize timeouts, severity levels, and more
 - **Cross-Platform Support**: Works on Linux, macOS, and Windows
+- **Enhanced Arch Linux Support**: Proper Python environment handling with pipx
 
 ## 📦 Installation
 
@@ -191,9 +193,11 @@ chmod +x ./bin/install-security-tools.sh
 ```
 
 **Supported Platforms:**
-- **Linux**: Ubuntu/Debian, CentOS/RHEL/Fedora, Arch Linux
+- **Linux**: Ubuntu/Debian, CentOS/RHEL/Fedora, Arch Linux (with pipx support)
 - **macOS**: via Homebrew
 - **Windows**: via Chocolatey (WSL recommended)
+
+**Arch Linux Note**: The script automatically handles Python environment restrictions by using `pipx` for Python packages, resolving the `externally-managed-environment` error.
 
 #### Option B: Manual Installation
 
@@ -243,6 +247,43 @@ nvm install node
 npm install -g @profullstack/scanner
 ```
 
+#### Arch Linux Python Environment Issues
+If you encounter `externally-managed-environment` errors on Arch Linux, the installation script automatically handles this by using `pipx`:
+
+```bash
+# The script automatically installs pipx and uses it for Python packages
+./bin/install-security-tools.sh --all
+
+# Manual pipx installation if needed
+sudo pacman -S python-pipx
+pipx install zapcli
+pipx install wapiti3
+
+# Ensure pipx bin directory is in PATH
+echo 'export PATH=$PATH:$HOME/.local/bin' >> ~/.bashrc
+source ~/.bashrc
+
+# Verify installation
+scanner tools --check
+```
+
+**Troubleshooting Arch Linux installations:**
+```bash
+# Check current PATH
+echo $PATH
+
+# Manually add directories to PATH
+export PATH=$PATH:$HOME/.local/bin:$HOME/go/bin
+
+# Restart terminal or reload bashrc
+source ~/.bashrc
+
+# Check tool availability
+which zap-cli
+which wapiti
+which nuclei
+```
+
 #### Tool Installation Issues
 ```bash
 # Check which tools are missing
@@ -251,6 +292,12 @@ scanner tools --check
 # Install missing tools individually
 ./bin/install-security-tools.sh --nikto
 ./bin/install-security-tools.sh --nuclei
+
+# Force reinstall if tools are not working
+./bin/install-security-tools.sh --force --all
+
+# View detailed installation commands
+./bin/install-security-tools.sh --all  # Shows exact commands being run
 ```
 
 #### Docker Issues
@@ -273,8 +320,15 @@ docker system prune -f
 ### CLI Usage
 
 ```bash
-# Basic scan
+# Basic scan (target can be URL, domain, or IP)
 scanner scan https://example.com
+scanner scan example.com
+scanner scan 192.168.1.1
+scanner scan https://example.com/app
+
+# Project-based scanning
+scanner projects --add --name "My Website" --domain "example.com"
+scanner scan https://example.com --project "My Website"
 
 # Quick scan with specific tools
 scanner scan https://example.com --tools nikto,nuclei
@@ -326,14 +380,49 @@ const htmlReport = await generateReport(result, { format: 'html' });
 # Scan a target
 scanner scan <target> [options]
 
+# Target can be:
+#   - Full URL: https://example.com
+#   - Domain: example.com
+#   - IP address: 192.168.1.1
+#   - URL with path: https://example.com/app
+
 # Options:
 #   -t, --tools <tools>     Comma-separated list of tools
 #   -o, --output <dir>      Output directory
 #   -f, --format <format>   Report format (json,html,csv,xml,markdown,text)
 #   -p, --profile <profile> Scan profile (quick,standard,comprehensive,owasp)
+#   --project <project>     Project ID or name to associate scan with
 #   --timeout <seconds>     Timeout per tool
 #   --verbose               Verbose output
 #   --no-report            Skip report generation
+```
+
+### Project Management
+```bash
+# Create a new project
+scanner projects --add --name "My Website" --domain "example.com"
+scanner projects --add --name "API Server" --url "https://api.example.com"
+
+# List all projects
+scanner projects --list
+
+# Show project details
+scanner projects --show "My Website"
+
+# View project scan history
+scanner projects --history "My Website"
+
+# Show project statistics
+scanner projects --stats "My Website"
+
+# Show global statistics
+scanner projects --stats
+
+# Remove a project
+scanner projects --remove "My Website"
+
+# Clear project history
+scanner projects --clear-history "My Website"
 ```
 
 ### History & Results
@@ -478,7 +567,134 @@ const result4 = await scanTarget('https://example.com', {
 - **Scope Testing**: Verify that authenticated scans cover the intended scope and don't access unauthorized areas
 - **Credential Rotation**: Use dedicated test credentials that can be rotated regularly
 
-## � Scan Profiles
+## 📁 Project Management
+
+The scanner includes comprehensive project management features to organize and track your security scans across different applications and environments.
+
+### Creating Projects
+
+```bash
+# Create project with domain
+scanner projects --add --name "E-commerce Site" --domain "shop.example.com" --description "Main shopping website"
+
+# Create project with URL
+scanner projects --add --name "API Gateway" --url "https://api.example.com" --description "REST API endpoints"
+
+# Create project with minimal info
+scanner projects --add --name "Internal App" --domain "internal.company.com"
+```
+
+### Managing Projects
+
+```bash
+# List all projects
+scanner projects --list
+
+# Show detailed project information
+scanner projects --show "E-commerce Site"
+
+# Update project description
+scanner projects --show "E-commerce Site"  # Get project ID
+scanner projects --update <project-id> --description "Updated description"
+
+# Remove a project (includes all scan history)
+scanner projects --remove "E-commerce Site"
+```
+
+### Project-Based Scanning
+
+```bash
+# Associate scans with projects
+scanner scan https://shop.example.com --project "E-commerce Site"
+scanner scan https://shop.example.com/admin --project "E-commerce Site" --profile comprehensive
+
+# Scans are automatically tracked in project history
+scanner projects --history "E-commerce Site"
+```
+
+### Project Analytics
+
+```bash
+# View project-specific statistics
+scanner projects --stats "E-commerce Site"
+
+# View global statistics across all projects
+scanner projects --stats
+
+# Clear project scan history
+scanner projects --clear-history "E-commerce Site"
+
+# Clear all scan history
+scanner projects --clear-history
+```
+
+### Project Data Storage
+
+Projects and scan history are stored in your configuration directory:
+
+- **Projects**: `~/.config/scanner/projects.json`
+- **Scan History**: `~/.config/scanner/history.json`
+- **Configuration**: `~/.config/scanner/config.json`
+
+### Programmatic Project Management
+
+```javascript
+import {
+  addProject, getProjects, getProject,
+  addScanToHistory, getProjectHistory, getProjectStats
+} from '@profullstack/scanner';
+
+// Create a new project
+const project = addProject({
+  name: 'My Application',
+  domain: 'app.example.com',
+  description: 'Production web application'
+});
+
+// Get all projects
+const projects = getProjects();
+
+// Get project by name or ID
+const myProject = getProject('My Application');
+
+// Scan with project association
+const scanResult = await scanTarget('https://app.example.com', {
+  projectId: project.id,
+  tools: ['nikto', 'nuclei']
+});
+
+// View project history
+const history = getProjectHistory(project.id);
+
+// Get project statistics
+const stats = getProjectStats(project.id);
+console.log(`Total scans: ${stats.totalScans}`);
+console.log(`Total vulnerabilities: ${stats.totalVulnerabilities}`);
+```
+
+### Project Workflow Example
+
+```bash
+# 1. Set up projects for your applications
+scanner projects --add --name "Frontend" --domain "app.example.com"
+scanner projects --add --name "Backend API" --url "https://api.example.com"
+scanner projects --add --name "Admin Panel" --url "https://admin.example.com"
+
+# 2. Run regular scans associated with projects
+scanner scan https://app.example.com --project "Frontend" --profile standard
+scanner scan https://api.example.com --project "Backend API" --profile owasp
+scanner scan https://admin.example.com --project "Admin Panel" --profile comprehensive
+
+# 3. Monitor project security over time
+scanner projects --stats "Frontend"
+scanner projects --history "Backend API"
+
+# 4. Generate project-specific reports
+scanner projects --history "Admin Panel" | head -1 | cut -d' ' -f3  # Get latest scan ID
+scanner report <scan-id> --format html
+```
+
+## 🎯 Scan Profiles
 
 ### Quick Scan
 - **Tools**: Nikto, Nuclei
@@ -543,14 +759,16 @@ Plain text format for console output.
 ### Core Functions
 
 #### `scanTarget(target, options)`
-Scan a target URL or IP address.
+Scan a target URL, domain, or IP address.
 
 ```javascript
+// Target can be URL, domain, or IP
 const result = await scanTarget('https://example.com', {
   tools: ['nikto', 'nuclei'],           // Tools to use
   outputDir: './scan-results',          // Output directory
   timeout: 300,                         // Timeout per tool (seconds)
   verbose: false,                       // Verbose output
+  projectId: 'project-uuid',            // Associate with project
   toolOptions: {                        // Tool-specific options
     nikto: { timeout: 120 },
     nuclei: { severity: 'high,critical' }
