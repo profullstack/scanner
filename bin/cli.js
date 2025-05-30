@@ -4,6 +4,8 @@ import { Command } from 'commander';
 import prompts from 'prompts';
 import chalk from 'chalk';
 import ora from 'ora';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { scanTarget, getScanHistory, getAllScans, getScanStats, getScanById, deleteScan, clearScanHistory } from '../lib/scanner.js';
 import { checkToolAvailability, getInstallationInstructions } from '../lib/tools.js';
 import { generateReport, exportReport, getReportFormats } from '../lib/reports.js';
@@ -37,6 +39,30 @@ function displayVulnerabilitySummary(summary) {
   console.log(`📈 Total: ${chalk.bold(summary.total)}`);
 }
 
+// Helper function to open a file in the default browser
+async function openInBrowser(filePath) {
+  const execAsync = promisify(exec);
+  const platform = process.platform;
+  let command;
+
+  try {
+    if (platform === 'win32') {
+      command = `start "" "${filePath}"`;
+    } else if (platform === 'darwin') {
+      command = `open "${filePath}"`;
+    } else {
+      // Linux
+      command = `xdg-open "${filePath}"`;
+    }
+
+    await execAsync(command);
+    return true;
+  } catch (error) {
+    console.error(chalk.red(`Failed to open file in browser: ${error.message}`));
+    return false;
+  }
+}
+
 // Main scan command
 program
   .command('scan <target>')
@@ -49,6 +75,9 @@ program
   .option('-t, --tools <tools>', 'Comma-separated list of tools to use (nikto,zap,wapiti,nuclei,sqlmap)', '')
   .option('-o, --output <dir>', 'Output directory for scan results')
   .option('-f, --format <format>', 'Report format (json,html,csv,xml,markdown,text)', 'json')
+  .option('--multi-format', 'Generate reports in multiple formats (comma-separated in --format)')
+  .option('--ui-json', 'Generate UI-friendly JSON with additional metadata')
+  .option('--open-html', 'Open HTML report in browser after generation')
   .option('-p, --profile <profile>', 'Use predefined scan profile (quick,standard,comprehensive,owasp)')
   .option('--project <project>', 'Project ID or name to associate scan with')
   .option('--timeout <seconds>', 'Timeout for each tool in seconds', '300')
@@ -255,9 +284,49 @@ program
         reportSpinner.start();
 
         try {
-          const reportPath = `${result.outputDir}/report.${options.format}`;
-          await exportReport(result, reportPath, { format: options.format });
-          reportSpinner.succeed(chalk.green(`Report saved: ${reportPath}`));
+          // Handle multiple formats
+          if (options.multiFormat) {
+            const formats = options.format.split(',').map(f => f.trim());
+            
+            reportSpinner.text = `Generating reports in formats: ${formats.join(', ')}...`;
+            
+            const reportResults = await exportReport(result, `${result.outputDir}/report`, {
+              format: formats,
+              multiFormat: true,
+              outputDir: result.outputDir,
+              uiFormat: options.uiJson
+            });
+            
+            reportSpinner.succeed(chalk.green(`Reports generated in ${formats.length} formats`));
+            
+            // List all generated reports
+            reportResults.forEach(report => {
+              console.log(chalk.cyan(`  - ${report.format}: ${report.filePath}`));
+            });
+            
+            // Open HTML report if requested and available
+            if (options.openHtml) {
+              const htmlReport = reportResults.find(r => r.format === 'html');
+              if (htmlReport) {
+                console.log(chalk.blue('\n🌐 Opening HTML report in browser...'));
+                await openInBrowser(htmlReport.filePath);
+              }
+            }
+          } else {
+            // Single format
+            const reportPath = `${result.outputDir}/report.${options.format}`;
+            await exportReport(result, reportPath, {
+              format: options.format,
+              uiFormat: options.format === 'json' && options.uiJson
+            });
+            reportSpinner.succeed(chalk.green(`Report saved: ${reportPath}`));
+            
+            // Open HTML report in browser if requested
+            if (options.openHtml && options.format === 'html') {
+              console.log(chalk.blue('\n🌐 Opening HTML report in browser...'));
+              await openInBrowser(reportPath);
+            }
+          }
         } catch (error) {
           reportSpinner.fail(chalk.red(`Report generation failed: ${error.message}`));
         }
@@ -361,7 +430,12 @@ program
 program
   .command('show <scanId>')
   .description('Show detailed scan results')
-  .option('-f, --format <format>', 'Output format (json,text)', 'text')
+  .option('-f, --format <format>', 'Output format (json,text,html,markdown,csv,xml)', 'text')
+  .option('--ui-json', 'Use UI-friendly JSON format (only with json format)')
+  .option('--detailed', 'Show detailed information in text format')
+  .option('--no-color', 'Disable colored output in text format')
+  .option('--open-html', 'Open HTML report in browser (only with html format or when saving to file)')
+  .option('-o, --output <file>', 'Save output to file instead of displaying')
   .action(async (scanId, options) => {
     try {
       const scan = getScanById(scanId);
@@ -371,55 +445,47 @@ program
         process.exit(1);
       }
 
-      if (options.format === 'json') {
-        console.log(JSON.stringify(scan, null, 2));
-        return;
-      }
+      // Generate report in requested format
+      const reportOptions = {
+        format: options.format,
+        uiFormat: options.uiJson && options.format === 'json',
+        detailed: options.detailed,
+        colorOutput: options.color
+      };
 
-      // Text format
-      console.log(chalk.blue('🔍 Scan Details\n'));
-      
-      console.log(chalk.bold('Basic Information:'));
-      console.log(`Target: ${chalk.cyan(scan.target)}`);
-      console.log(`Scan ID: ${chalk.gray(scan.id)}`);
-      console.log(`Status: ${scan.status === 'completed' ? chalk.green(scan.status) : chalk.red(scan.status)}`);
-      console.log(`Start Time: ${chalk.gray(new Date(scan.startTime).toLocaleString())}`);
-      console.log(`Duration: ${chalk.yellow(formatDuration(scan.duration || 0))}`);
-      console.log(`Tools Used: ${chalk.cyan(scan.tools.join(', '))}`);
-      
-      displayVulnerabilitySummary(scan.summary);
-      
-      if (scan.vulnerabilities.length > 0) {
-        console.log(chalk.bold('\n🚨 Vulnerabilities:'));
+      try {
+        // Generate the report
+        const report = await generateReport(scan, reportOptions);
         
-        scan.vulnerabilities.forEach((vuln, index) => {
-          const emoji = getSeverityEmoji(vuln.severity);
-          const color = vuln.severity === 'critical' ? 'red' : 
-                       vuln.severity === 'high' ? 'redBright' :
-                       vuln.severity === 'medium' ? 'yellow' :
-                       vuln.severity === 'low' ? 'cyan' : 'gray';
+        // If output file is specified, save to file
+        if (options.output) {
+          const spinner = createSpinner(`Saving ${options.format} report to ${options.output}...`);
+          spinner.start();
           
-          console.log(`\n${index + 1}. ${emoji} ${chalk[color](vuln.title || 'Unknown Vulnerability')}`);
-          console.log(`   Severity: ${chalk[color](vuln.severity?.toUpperCase() || 'UNKNOWN')}`);
-          console.log(`   Source: ${chalk.gray(vuln.source || 'Unknown')}`);
-          console.log(`   Category: ${chalk.gray(vuln.category || 'N/A')}`);
+          await exportReport(scan, options.output, reportOptions);
           
-          if (vuln.url) {
-            console.log(`   URL: ${chalk.blue(vuln.url)}`);
+          spinner.succeed(chalk.green(`Report saved to ${options.output}`));
+          
+          // Open HTML report in browser if requested
+          if (options.openHtml && options.format === 'html') {
+            console.log(chalk.blue('\n🌐 Opening HTML report in browser...'));
+            await openInBrowser(options.output);
           }
-          
-          if (vuln.method) {
-            console.log(`   Method: ${chalk.gray(vuln.method)}`);
+        } else {
+          // Display to console
+          if (options.format === 'json') {
+            console.log(typeof report === 'string' ? report : JSON.stringify(report, null, 2));
+          } else if (options.format === 'text') {
+            console.log(report);
+          } else {
+            console.log(chalk.yellow(`\n⚠️  ${options.format.toUpperCase()} format is better viewed in a file.`));
+            console.log(chalk.cyan(`💡 Use --output option to save to a file instead of displaying.`));
+            console.log('\n' + report.substring(0, 500) + '...\n');
+            console.log(chalk.gray(`(Output truncated. Full report is ${report.length} characters)`));
           }
-          
-          if (vuln.parameter || vuln.param) {
-            console.log(`   Parameter: ${chalk.gray(vuln.parameter || vuln.param)}`);
-          }
-          
-          if (vuln.description) {
-            console.log(`   Description: ${chalk.gray(vuln.description)}`);
-          }
-        });
+        }
+      } catch (error) {
+        console.error(chalk.red(`❌ Error generating report: ${error.message}`));
       }
 
     } catch (error) {
@@ -433,7 +499,12 @@ program
   .command('report <scanId>')
   .description('Generate report from existing scan')
   .option('-f, --format <format>', 'Report format (json,html,csv,xml,markdown,text)', 'html')
+  .option('--multi-format', 'Generate reports in multiple formats (comma-separated in --format)')
+  .option('--ui-json', 'Generate UI-friendly JSON with additional metadata')
+  .option('--open-html', 'Open HTML report in browser after generation')
   .option('-o, --output <file>', 'Output file path')
+  .option('-d, --output-dir <dir>', 'Output directory for multiple formats')
+  .option('--detailed', 'Include detailed information in text reports')
   .action(async (scanId, options) => {
     try {
       const scan = getScanById(scanId);
@@ -446,13 +517,66 @@ program
       const spinner = createSpinner('Generating report...');
       spinner.start();
 
-      const outputFile = options.output || `report-${scanId}.${options.format}`;
-      await exportReport(scan, outputFile, { format: options.format });
-
-      spinner.succeed(chalk.green(`Report generated: ${outputFile}`));
-
+      try {
+        if (options.multiFormat) {
+          // Handle multiple formats
+          const formats = options.format.split(',').map(f => f.trim());
+          
+          spinner.text = `Generating reports in formats: ${formats.join(', ')}...`;
+          
+          const outputDir = options.outputDir || '.';
+          const baseFilename = options.output ?
+            options.output.replace(/\.[^/.]+$/, '') :
+            `report-${scanId}`;
+          
+          const reportResults = await exportReport(scan, `${outputDir}/${baseFilename}`, {
+            format: formats,
+            multiFormat: true,
+            outputDir: outputDir,
+            uiFormat: options.uiJson,
+            detailed: options.detailed
+          });
+          
+          spinner.succeed(chalk.green(`Reports generated in ${formats.length} formats`));
+          
+          // List all generated reports
+          reportResults.forEach(report => {
+            console.log(chalk.cyan(`  - ${report.format}: ${report.filePath}`));
+          });
+          
+          // Open HTML report if requested and available
+          if (options.openHtml) {
+            const htmlReport = reportResults.find(r => r.format === 'html');
+            if (htmlReport) {
+              console.log(chalk.blue('\n🌐 Opening HTML report in browser...'));
+              await openInBrowser(htmlReport.filePath);
+            }
+          }
+        } else {
+          // Single format
+          const outputFile = options.output || `report-${scanId}.${options.format}`;
+          await exportReport(scan, outputFile, {
+            format: options.format,
+            uiFormat: options.format === 'json' && options.uiJson,
+            detailed: options.detailed
+          });
+          
+          spinner.succeed(chalk.green(`Report generated: ${outputFile}`));
+          
+          // Open HTML report in browser if requested
+          if (options.openHtml && options.format === 'html') {
+            console.log(chalk.blue('\n🌐 Opening HTML report in browser...'));
+            await openInBrowser(outputFile);
+          }
+        }
+      } catch (error) {
+        spinner.fail(chalk.red(`Report generation failed: ${error.message}`));
+        if (options.verbose) {
+          console.error(error.stack);
+        }
+      }
     } catch (error) {
-      console.error(chalk.red(`❌ Report generation failed: ${error.message}`));
+      console.error(chalk.red(`❌ Error accessing scan: ${error.message}`));
       process.exit(1);
     }
   });
