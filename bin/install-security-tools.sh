@@ -159,10 +159,18 @@ install_tools_debian() {
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_HTTPX" = true ]; then
     print_message "Installing httpx-toolkit..." "${BLUE}"
+    
+    # Install Go-based httpx-toolkit
     run_command "wget -O /tmp/httpx.tar.gz https://github.com/projectdiscovery/httpx/releases/latest/download/httpx_*_linux_amd64.tar.gz" "Downloading httpx-toolkit"
     run_command "tar -xzf /tmp/httpx.tar.gz -C /tmp/" "Extracting httpx-toolkit"
     run_command "sudo mv /tmp/httpx /usr/local/bin/httpx-toolkit" "Installing httpx-toolkit"
     run_command "sudo chmod +x /usr/local/bin/httpx-toolkit" "Making httpx-toolkit executable"
+    
+    # Install Python-based httpx in virtual environment
+    print_message "Installing Python httpx in virtual environment..." "${BLUE}"
+    run_command "python3 -m venv myenv" "Creating Python virtual environment"
+    run_command "source myenv/bin/activate && pip install httpx && deactivate" "Installing httpx in virtual environment"
+    print_message "Python httpx installed in myenv/ directory. Activate with: source myenv/bin/activate" "${GREEN}"
   fi
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_WAPITI" = true ]; then
@@ -249,6 +257,12 @@ install_tools_arch() {
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_HTTPX" = true ]; then
     print_message "Installing httpx-toolkit from AUR..." "${BLUE}"
     run_command "yay -S --needed --noconfirm httpx-bin" "Installing httpx-toolkit"
+    
+    # Install Python-based httpx in virtual environment
+    print_message "Installing Python httpx in virtual environment..." "${BLUE}"
+    run_command "python -m venv myenv" "Creating Python virtual environment"
+    run_command "source myenv/bin/activate && pip install httpx && deactivate" "Installing httpx in virtual environment"
+    print_message "Python httpx installed in myenv/ directory. Activate with: source myenv/bin/activate" "${GREEN}"
   fi
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_WAPITI" = true ]; then
@@ -322,6 +336,12 @@ install_tools_macos() {
     run_command "brew install httpx" "Installing httpx-toolkit via Homebrew"
     # Create alias for consistency
     run_command "ln -sf /opt/homebrew/bin/httpx /opt/homebrew/bin/httpx-toolkit" "Creating httpx-toolkit alias"
+    
+    # Install Python-based httpx in virtual environment
+    print_message "Installing Python httpx in virtual environment..." "${BLUE}"
+    run_command "python3 -m venv myenv" "Creating Python virtual environment"
+    run_command "source myenv/bin/activate && pip install httpx && deactivate" "Installing httpx in virtual environment"
+    print_message "Python httpx installed in myenv/ directory. Activate with: source myenv/bin/activate" "${GREEN}"
   fi
   
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_WAPITI" = true ]; then
@@ -391,6 +411,14 @@ install_tools_windows() {
     fi
     print_message "Installing Nuclei..." "${BLUE}"
     go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+  fi
+  
+  if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_HTTPX" = true ]; then
+    # Install Python-based httpx in virtual environment
+    print_message "Installing Python httpx in virtual environment..." "${BLUE}"
+    run_command "python -m venv myenv" "Creating Python virtual environment"
+    run_command "myenv\\Scripts\\activate.bat && pip install httpx && deactivate" "Installing httpx in virtual environment"
+    print_message "Python httpx installed in myenv/ directory. Activate with: myenv\\Scripts\\activate.bat" "${GREEN}"
   fi
   
   print_message "You may need to restart your terminal for the changes to take effect." "${YELLOW}"

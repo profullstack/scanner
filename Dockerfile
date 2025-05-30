@@ -46,6 +46,10 @@ RUN go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest && \
     go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest && \
     ln -s /root/go/bin/httpx /usr/local/bin/httpx-toolkit
 
+# Install Python httpx in virtual environment
+RUN python3 -m venv /app/myenv && \
+    /app/myenv/bin/pip install httpx
+
 # Install pnpm
 RUN npm install -g pnpm
 

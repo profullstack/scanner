@@ -198,6 +198,12 @@ sudo apt-get update
 sudo apt-get install nikto wapiti sqlmap python3-pip golang-go
 go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
 go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
+
+# Install Python httpx in virtual environment
+python3 -m venv myenv
+source myenv/bin/activate
+pip install httpx
+deactivate
 ```
 
 #### macOS
@@ -205,6 +211,12 @@ go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
 brew install nikto wapiti sqlmap python go
 go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
 go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
+
+# Install Python httpx in virtual environment
+python3 -m venv myenv
+source myenv/bin/activate
+pip install httpx
+deactivate
 ```
 
 #### Windows
@@ -212,6 +224,12 @@ go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
 choco install nikto sqlmap python golang
 go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
 go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
+
+# Install Python httpx in virtual environment
+python -m venv myenv
+myenv\Scripts\activate.bat
+pip install httpx
+deactivate
 ```
 
 ### Step 3: Verify Installation
@@ -890,7 +908,10 @@ Web server scanner for common vulnerabilities and misconfigurations.
 ```
 
 ### httpx-toolkit
-Modern HTTP toolkit for service discovery and security testing.
+Modern HTTP toolkit for service discovery and security testing. The scanner uses both:
+
+1. Go-based httpx-toolkit for HTTP service discovery
+2. Python-based httpx library for advanced HTTP requests
 
 **Configuration:**
 ```javascript
@@ -899,6 +920,20 @@ Modern HTTP toolkit for service discovery and security testing.
   timeout: 300,
   techDetect: true
 }
+```
+
+**Python Virtual Environment:**
+The scanner creates a Python virtual environment (`myenv/`) with the httpx library installed:
+```bash
+# Activate the virtual environment
+source myenv/bin/activate  # Linux/macOS
+myenv\Scripts\activate.bat  # Windows
+
+# Use Python httpx
+python -c "import httpx; print(httpx.__version__)"
+
+# Deactivate when done
+deactivate
 ```
 
 ### Wapiti
