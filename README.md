@@ -394,7 +394,11 @@ scanner scan <target> [options]
 #   --project <project>     Project ID or name to associate scan with
 #   --timeout <seconds>     Timeout per tool
 #   --verbose               Verbose output
-#   --no-report            Skip report generation
+#   --no-report             Skip report generation
+#   --ui-json               Generate UI-friendly JSON format
+#   --multi-format          Generate multiple report formats
+#   --open-html             Open HTML report in browser
+#   --detailed              Generate detailed text reports
 ```
 
 ### Project Management
@@ -438,6 +442,18 @@ scanner show <scanId>
 
 # Generate report from existing scan
 scanner report <scanId> --format html
+
+# Generate UI-friendly JSON report
+scanner report <scanId> --format json --ui-json
+
+# Generate multiple report formats
+scanner report <scanId> --format json,html,text --multi-format
+
+# Generate and open HTML report in browser
+scanner report <scanId> --format html --open-html
+
+# Generate detailed text report
+scanner report <scanId> --format text --detailed
 
 # Delete specific scan
 scanner delete <scanId>
@@ -720,15 +736,26 @@ scanner report <scan-id> --format html
 
 ### JSON
 ```bash
+# Standard JSON format
 scanner scan https://example.com --format json
+
+# UI-friendly JSON format with enhanced metadata
+scanner scan https://example.com --format json --ui-json
+
+# Generate both formats
+scanner scan https://example.com --format json --ui-json --multi-format
 ```
-Structured data for programmatic analysis.
+Structured data for programmatic analysis. The UI-friendly format includes enhanced metadata, visualization data, and structured information optimized for user interfaces.
 
 ### HTML
 ```bash
+# Generate HTML report
 scanner scan https://example.com --format html
+
+# Generate and automatically open in browser
+scanner scan https://example.com --format html --open-html
 ```
-Interactive web report with charts and detailed vulnerability information.
+Interactive web report with charts and detailed vulnerability information. Can be automatically opened in your default browser.
 
 ### CSV
 ```bash
@@ -783,7 +810,10 @@ Generate a report from scan results.
 const report = await generateReport(scanResult, {
   format: 'html',                       // Report format
   includeRawOutput: false,              // Include raw tool output
-  template: 'default'                   // Report template
+  template: 'default',                  // Report template
+  uiFormat: true,                       // Generate UI-friendly JSON
+  detailed: true,                       // Generate detailed text report
+  openHtml: true                        // Open HTML report in browser
 });
 ```
 
@@ -951,12 +981,25 @@ import { scanTarget, generateReport, exportReport } from '@profullstack/scanner'
 
 const result = await scanTarget('https://example.com');
 
-// Generate multiple report formats
-const formats = ['html', 'json', 'csv'];
-for (const format of formats) {
-  await exportReport(result, `report.${format}`, { format });
-  console.log(`Generated ${format} report`);
-}
+// Generate multiple report formats in one call
+await exportReport(result, 'security-report', {
+  format: ['html', 'json', 'csv', 'text'],
+  multiFormat: true,
+  uiFormat: true,
+  detailed: true,
+  openHtml: true
+});
+
+// Access the UI-friendly JSON data programmatically
+const uiJsonReport = await generateReport(result, {
+  format: 'json',
+  uiFormat: true
+});
+
+const reportData = JSON.parse(uiJsonReport);
+console.log(`Scan ID: ${reportData.metadata.scan_id}`);
+console.log(`Total vulnerabilities: ${reportData.summary.total_vulnerabilities}`);
+console.log(`Severity breakdown:`, reportData.summary.severity_counts);
 ```
 
 ### Automated Security Pipeline
@@ -994,7 +1037,133 @@ const targets = ['https://app1.example.com', 'https://app2.example.com'];
 await securityPipeline(targets);
 ```
 
-## 🔒 Security Considerations
+## 🔄 Enhanced Output Features
+
+### UI-Friendly JSON Format
+
+The scanner now provides a UI-optimized JSON format that includes enhanced metadata, visualization data, and structured information designed for integration with user interfaces:
+
+```javascript
+{
+  "schema_version": "2.0",
+  "metadata": {
+    "scan_id": "scan-123",
+    "target": "https://example.com",
+    "target_url": "https://example.com",
+    "target_hostname": "example.com",
+    "scan_start_time": "2024-01-01T10:00:00.000Z",
+    "scan_end_time": "2024-01-01T10:05:00.000Z",
+    "scan_duration_seconds": 300,
+    "scan_duration_formatted": "5 minutes",
+    "project_id": "project-123",
+    "scan_profile": "comprehensive"
+  },
+  "summary": {
+    "total_vulnerabilities": 5,
+    "severity_counts": {
+      "critical": 1,
+      "high": 2,
+      "medium": 1,
+      "low": 1,
+      "info": 0
+    },
+    "tools_count": 3,
+    "tools_used": ["nikto", "nuclei", "wapiti"]
+  },
+  "vulnerabilities": [
+    {
+      "id": "vuln-001",
+      "severity": "high",
+      "severity_score": 8.5,
+      "title": "SQL Injection",
+      "description": "SQL injection vulnerability detected",
+      "location": {
+        "url": "https://example.com/search",
+        "parameter": "q"
+      },
+      "scan_id": "scan-123",
+      "source": "nuclei"
+    }
+  ],
+  "ui": {
+    "severity_colors": {
+      "critical": "#ff0000",
+      "high": "#ff6600",
+      "medium": "#ffcc00",
+      "low": "#ffff00",
+      "info": "#0099ff"
+    },
+    "severity_icons": {
+      "critical": "skull",
+      "high": "exclamation-triangle",
+      "medium": "exclamation-circle",
+      "low": "info-circle",
+      "info": "info"
+    },
+    "charts_data": {
+      "severity_distribution": [
+        { "severity": "critical", "count": 1 },
+        { "severity": "high", "count": 2 },
+        { "severity": "medium", "count": 1 },
+        { "severity": "low", "count": 1 },
+        { "severity": "info", "count": 0 }
+      ]
+    },
+    "vulnerability_groups": [
+      {
+        "category": "Injection",
+        "count": 2,
+        "vulnerabilities": ["vuln-001", "vuln-002"]
+      }
+    ]
+  }
+}
+```
+
+### Multi-Format Output
+
+Generate reports in multiple formats simultaneously:
+
+```bash
+# Generate reports in JSON, HTML, and text formats
+scanner scan https://example.com --format json,html,text --multi-format
+
+# Generate reports with UI-friendly JSON and open HTML in browser
+scanner scan https://example.com --format json,html --ui-json --multi-format --open-html
+```
+
+### Browser Integration
+
+HTML reports can be automatically opened in your default browser:
+
+```bash
+# Scan and open HTML report
+scanner scan https://example.com --format html --open-html
+
+# Generate report from existing scan and open in browser
+scanner report <scan-id> --format html --open-html
+```
+
+### Detailed Text Reports
+
+Generate comprehensive text reports with detailed vulnerability information:
+
+```bash
+# Generate detailed text report
+scanner scan https://example.com --format text --detailed
+
+# The detailed report includes:
+# - Comprehensive vulnerability details
+# - Tool-specific information
+# - Formatted for better readability
+# - Severity indicators
+```
+
+### Backward Compatibility
+
+All enhanced features maintain backward compatibility with existing code and workflows. The standard JSON format is still available alongside the new UI-friendly format.
+
+## � Security Considerations
 
 - **Authorized Testing Only**: Only scan systems you own or have explicit permission to test
 - **Rate Limiting**: Tools may be aggressive; consider rate limiting for production systems
