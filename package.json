@@ -1,6 +1,6 @@
 {
   "name": "@profullstack/scanner",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "A comprehensive CLI and Node.js module for web application security scanning with OWASP compliance, supporting multiple scanning tools and detailed vulnerability reporting",
   "type": "module",
   "main": "lib/index.js",
