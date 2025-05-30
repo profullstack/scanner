@@ -8,7 +8,7 @@ A comprehensive CLI and Node.js module for web application security scanning wit
 
 ## 🚀 Features
 
-- **Multiple Security Tools Integration**: Nikto, OWASP ZAP, Wapiti, Nuclei, SQLMap
+- **Multiple Security Tools Integration**: Nikto, httpx-toolkit, Wapiti, Nuclei, SQLMap
 - **OWASP Top 10 Compliance**: Comprehensive coverage of OWASP vulnerabilities
 - **Project Management**: Organize scans by project with comprehensive history tracking
 - **Multiple Report Formats**: JSON, HTML, CSV, XML, Markdown, Text
@@ -86,14 +86,6 @@ docker-compose exec scanner scanner scan http://dvwa --tools nikto,nuclei
 docker-compose exec scanner scanner scan http://webgoat:8080 --profile owasp
 ```
 
-#### OWASP ZAP Integration
-```bash
-# Start ZAP with web interface
-docker-compose --profile zap up -d zap
-
-# Access ZAP GUI at http://localhost:8080
-# Use ZAP API at http://localhost:8090
-```
 
 ### Docker Compose Commands Reference
 
@@ -145,10 +137,9 @@ SCANNER_DEFAULT_PROFILE=comprehensive
 # Tool configuration
 NIKTO_ENABLED=true
 NUCLEI_SEVERITY=medium,high,critical
-ZAP_ENABLED=true
+HTTPX_ENABLED=true
 
 # Port configuration
-ZAP_PORT=8080
 DVWA_PORT=8081
 WEBGOAT_PORT=8082
 ```
@@ -205,22 +196,22 @@ chmod +x ./bin/install-security-tools.sh
 ```bash
 sudo apt-get update
 sudo apt-get install nikto wapiti sqlmap python3-pip golang-go
-pip3 install zapcli
 go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
 ```
 
 #### macOS
 ```bash
 brew install nikto wapiti sqlmap python go
-pip3 install zapcli
 go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
 ```
 
 #### Windows
 ```bash
 choco install nikto sqlmap python golang
-pip install zapcli
 go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
 ```
 
 ### Step 3: Verify Installation
@@ -256,7 +247,6 @@ If you encounter `externally-managed-environment` errors on Arch Linux, the inst
 
 # Manual pipx installation if needed
 sudo pacman -S python-pipx
-pipx install zapcli
 pipx install wapiti3
 
 # Ensure pipx bin directory is in PATH
@@ -279,7 +269,7 @@ export PATH=$PATH:$HOME/.local/bin:$HOME/go/bin
 source ~/.bashrc
 
 # Check tool availability
-which zap-cli
+which httpx-toolkit
 which wapiti
 which nuclei
 ```
@@ -728,7 +718,7 @@ scanner report <scan-id> --format html
 - **Duration**: ~15-30 minutes
 
 ### OWASP Scan
-- **Tools**: ZAP, Nuclei, SQLMap
+- **Tools**: httpx-toolkit, Nuclei, SQLMap
 - **Focus**: OWASP Top 10 vulnerabilities
 - **Duration**: ~10-20 minutes
 
@@ -899,15 +889,15 @@ Web server scanner for common vulnerabilities and misconfigurations.
 }
 ```
 
-### OWASP ZAP
-Comprehensive web application security scanner.
+### httpx-toolkit
+Modern HTTP toolkit for service discovery and security testing.
 
 **Configuration:**
 ```javascript
 {
   enabled: true,
-  timeout: 600,
-  spider: true
+  timeout: 300,
+  techDetect: true
 }
 ```
 
@@ -1189,7 +1179,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [OWASP](https://owasp.org/) for security standards and guidelines
 - [Nikto](https://github.com/sullo/nikto) for web server scanning
-- [OWASP ZAP](https://www.zaproxy.org/) for web application security testing
+- [httpx-toolkit](https://github.com/projectdiscovery/httpx) for HTTP service discovery
 - [Wapiti](https://github.com/wapiti-scanner/wapiti) for vulnerability scanning
 - [Nuclei](https://github.com/projectdiscovery/nuclei) for fast vulnerability detection
 - [SQLMap](https://github.com/sqlmapproject/sqlmap) for SQL injection testing

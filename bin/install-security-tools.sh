@@ -208,10 +208,6 @@ install_tools_centos() {
   fi
   
   # Install Python and pip if needed for ZAP CLI
-  if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_ZAP" = true ]; then
-    run_command "sudo yum install -y python3 python3-pip" "Installing Python and pip for ZAP CLI"
-    run_command "pip3 install --user zapcli" "Installing ZAP CLI"
-  fi
   
   # Install Go if needed for Nuclei
   if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_NUCLEI" = true ]; then
@@ -379,8 +375,6 @@ install_tools_windows() {
     choco install python -y
     
     if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_ZAP" = true ]; then
-      print_message "Installing ZAP CLI..." "${BLUE}"
-      pip install zapcli
     fi
     
     if [ "$INSTALL_ALL" = true ] || [ "$INSTALL_WAPITI" = true ]; then

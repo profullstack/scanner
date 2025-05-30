@@ -67,23 +67,6 @@ services:
     profiles:
       - test
 
-  # OWASP ZAP service (optional - for advanced scanning)
-  zap:
-    image: owasp/zap2docker-stable
-    container_name: profullstack-zap
-    ports:
-      - "${ZAP_PORT:-8080}:8080"
-      - "${ZAP_API_PORT:-8090}:8090"
-    volumes:
-      - zap-data:/zap/wrk
-    environment:
-      - ZAP_PORT=${ZAP_PORT:-8080}
-    networks:
-      - scanner-network
-    profiles:
-      - zap
-    command: zap-webswing.sh
-
   # Vulnerable test application (for testing)
   dvwa:
     image: vulnerables/web-dvwa
@@ -113,8 +96,6 @@ services:
 
 volumes:
   scanner-data:
-    driver: local
-  zap-data:
     driver: local
 
 networks:

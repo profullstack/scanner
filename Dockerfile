@@ -41,11 +41,10 @@ RUN apt-get update && apt-get install -y \
     sqlmap \
     && rm -rf /var/lib/apt/lists/*
 
-# Install ZAP CLI via pip
-RUN pip3 install zapcli
-
-# Install Nuclei
-RUN go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+# Install Nuclei and httpx-toolkit
+RUN go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest && \
+    go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest && \
+    ln -s /root/go/bin/httpx /usr/local/bin/httpx-toolkit
 
 # Install pnpm
 RUN npm install -g pnpm

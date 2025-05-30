@@ -72,7 +72,7 @@ program
                '    - Domain: example.com\n' +
                '    - IP address: 192.168.1.1\n' +
                '    - URL with path: https://example.com/app')
-  .option('-t, --tools <tools>', 'Comma-separated list of tools to use (nikto,zap,wapiti,nuclei,sqlmap)', '')
+  .option('-t, --tools <tools>', 'Comma-separated list of tools to use (nikto,httpx,wapiti,nuclei,sqlmap)', '')
   .option('-o, --output <dir>', 'Output directory for scan results')
   .option('-f, --format <format>', 'Report format (json,html,csv,xml,markdown,text)', 'json')
   .option('--multi-format', 'Generate reports in multiple formats (comma-separated in --format)')
@@ -595,7 +595,7 @@ program
         const spinner = createSpinner('Checking tool availability...');
         spinner.start();
 
-        const tools = ['nikto', 'zap-cli', 'wapiti', 'nuclei', 'sqlmap'];
+        const tools = ['nikto', 'httpx-toolkit', 'wapiti', 'nuclei', 'sqlmap'];
         const availability = await checkToolAvailability(tools);
 
         spinner.stop();

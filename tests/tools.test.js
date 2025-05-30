@@ -77,7 +77,7 @@ describe('Security Tools Management', () => {
   });
 
   test('should handle all supported tools', async () => {
-    const supportedTools = ['nikto', 'zap-cli', 'wapiti', 'nuclei', 'sqlmap'];
+    const supportedTools = ['nikto', 'httpx-toolkit', 'wapiti', 'nuclei', 'sqlmap'];
     const availability = await checkToolAvailability(supportedTools);
     
     supportedTools.forEach(tool => {
