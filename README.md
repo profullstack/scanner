@@ -1,5 +1,7 @@
 # 🛡️ @profullstack/scanner
 
+[![Crypto Payment](https://paybadge.profullstack.com/badge.svg)](https://paybadge.profullstack.com/?tickers=btc%2Ceth%2Csol%2Cusdc)
+
 A comprehensive CLI and Node.js module for web application security scanning with OWASP compliance, supporting multiple scanning tools and detailed vulnerability reporting.
 
 [![npm version](https://badge.fury.io/js/%40profullstack%2Fscanner.svg)](https://badge.fury.io/js/%40profullstack%2Fscanner)
