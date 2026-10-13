@@ -23,7 +23,15 @@ A comprehensive CLI and Node.js module for web application security scanning wit
 
 ## 📦 Installation
 
-Choose one of the following installation methods based on your needs:
+```bash
+curl -fsSL https://raw.githubusercontent.com/profullstack/scanner/master/install.sh | sh
+```
+
+That installs the `scanner` command under `~/.local` (no root; it brings its own Node if
+yours is older than 18). Remove it with `sh ~/.local/share/scanner/uninstall.sh`. The
+security tools it drives (Nikto, Nuclei, Wapiti, ...) are separate; see Step 2 below.
+
+Other installation methods:
 
 ## 🚀 Method 1: Docker Compose (Recommended)
 
@@ -154,7 +162,7 @@ Install directly on your host operating system for maximum performance and integ
 
 #### Global Installation (CLI)
 ```bash
-npm install -g @profullstack/scanner
+curl -fsSL https://raw.githubusercontent.com/profullstack/scanner/master/install.sh | sh
 ```
 
 #### Local Installation (Library)
